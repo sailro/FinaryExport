@@ -26,3 +26,15 @@ Finary uses Clerk authentication with mandatory TOTP 2FA. Auth flow is 6-step pr
 - Session duration: ~90 days without re-login
 
 **Dependencies:** Need TOTP generator library (e.g., OtpNet for .NET)
+
+### Architecture Blueprint (2026-03-12)
+
+**From Rusty (Lead):** Architecture document finalized in `architecture.md`. Key decisions:
+
+- **ITokenProvider abstraction** — sole auth interface. Implementation hidden in Auth module. Enables testing & future auth swaps.
+- **PeriodicTimer (50s) token refresh** as `IHostedService` — autonomous, no client-side token requests needed.
+- **Single project** with namespace discipline (no EPPlus complexity, use ClosedXML)
+- **Generic host** with DI/config/logging (Host.CreateApplicationBuilder)
+
+**Impact on Linus:** Follow architecture blueprint exactly. ITokenProvider drives auth module design. Token refresh is built-in service (not caller concern). Partial classes organize FinaryApiClient by endpoint category.
+

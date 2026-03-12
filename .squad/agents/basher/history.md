@@ -25,3 +25,14 @@ Finary login requires TOTP 2-factor authentication. This is not optional—all u
 - No static codes possible—must be generated autonomously
 
 **Scope:** Essential for autonomous authentication
+
+### Architecture Blueprint (2026-03-12)
+
+**From Rusty (Lead):** Architecture document finalized in `architecture.md`. Key decisions:
+
+- **Per-category error isolation** — one failing category (e.g., crypto portfolio) cannot kill the entire export. Tests must verify category isolation.
+- **ITokenProvider abstraction** — single auth interface for all token operations. Auth module is the only place Clerk is known. Enables testing with mock providers and future auth swaps.
+- **PeriodicTimer (50s) token refresh** as `IHostedService` — autonomous background service. Basher tests should verify token refresh doesn't interfere with concurrent API calls.
+
+**Impact on Basher:** Test category failure isolation extensively (one category failure must not break others). Mock ITokenProvider for all auth tests. Verify PeriodicTimer behavior under load and concurrent category exports.
+
