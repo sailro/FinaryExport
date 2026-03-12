@@ -1,0 +1,22 @@
+{
+  "universe_usage_history": [
+    {
+      "universe": "Ocean's Eleven",
+      "first_used": "2026-03-12T07:24:51Z",
+      "repo": "FinaryExport"
+    }
+  ],
+  "assignment_cast_snapshots": {
+    "finaryexport-2026-03-12": {
+      "assignment_id": "finaryexport-2026-03-12",
+      "universe": "Ocean's Eleven",
+      "created_at": "2026-03-12T07:24:51Z",
+      "agents": {
+        "rusty": "Lead",
+        "linus": "Backend Dev",
+        "livingston": "Protocol Analyst",
+        "basher": "Tester"
+      }
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "agents": {
+    "rusty": {
+      "persistent_name": "Rusty",
+      "universe": "Ocean's Eleven",
+      "role": "Lead",
+      "created_at": "2026-03-12T07:24:51Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "linus": {
+      "persistent_name": "Linus",
+      "universe": "Ocean's Eleven",
+      "role": "Backend Dev",
+      "created_at": "2026-03-12T07:24:51Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "livingston": {
+      "persistent_name": "Livingston",
+      "universe": "Ocean's Eleven",
+      "role": "Protocol Analyst",
+      "created_at": "2026-03-12T07:24:51Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "basher": {
+      "persistent_name": "Basher",
+      "universe": "Ocean's Eleven",
+      "role": "Tester",
+      "created_at": "2026-03-12T07:24:51Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "scribe": {
+      "persistent_name": "Scribe",
+      "universe": null,
+      "role": "Session Logger",
+      "created_at": "2026-03-12T07:24:51Z",
+      "legacy_named": false,
+      "status": "active"
+    }
+  }
+}
