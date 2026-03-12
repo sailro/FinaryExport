@@ -108,16 +108,14 @@ static async Task RunExportAsync(string? output, string? period, bool clearSessi
             Console.WriteLine($"  → {outputPath}");
         }
 
-        // 4. Export unified file (raw totals, no ownership split)
+        // 4. Export unified file (aggregated across ALL memberships)
         if (profiles.Count > 0)
         {
-            Console.WriteLine("Exporting unified (raw values)...");
-            var owner = profiles[0];
-            apiClient.SetOrganizationContext(owner.OrgId, owner.MembershipId);
-
+            Console.WriteLine($"Exporting unified ({profiles.Count} profiles)...");
+            var unifiedApi = new FinaryExport.Api.UnifiedFinaryApiClient(apiClient, profiles, logger);
             var unifiedContext = new FinaryExport.Export.ExportContext { UseDisplayValues = false };
             var unifiedPath = BuildUnifiedPath(options.OutputPath);
-            await exporter.ExportAsync(unifiedPath, apiClient, unifiedContext);
+            await exporter.ExportAsync(unifiedPath, unifiedApi, unifiedContext);
             Console.WriteLine($"  → {unifiedPath}");
         }
 
