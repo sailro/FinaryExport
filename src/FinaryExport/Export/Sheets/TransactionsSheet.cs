@@ -10,7 +10,7 @@ public sealed class TransactionsSheet : ISheetWriter
 {
     public string SheetName => "Transactions";
 
-    public async Task WriteAsync(IXLWorkbook workbook, IFinaryApiClient api, CancellationToken ct)
+    public async Task WriteAsync(IXLWorkbook workbook, IFinaryApiClient api, ExportContext context, CancellationToken ct)
     {
         var ws = workbook.Worksheets.Add(SheetName);
 

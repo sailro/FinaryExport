@@ -10,7 +10,7 @@ public sealed class AccountsSheet : ISheetWriter
 {
     public string SheetName => "Accounts";
 
-    public async Task WriteAsync(IXLWorkbook workbook, IFinaryApiClient api, CancellationToken ct)
+    public async Task WriteAsync(IXLWorkbook workbook, IFinaryApiClient api, ExportContext context, CancellationToken ct)
     {
         foreach (var category in Enum.GetValues<AssetCategory>())
         {
@@ -42,10 +42,10 @@ public sealed class AccountsSheet : ISheetWriter
                 {
                     ws.Cell($"A{row}").Value = account.Name ?? "";
                     ws.Cell($"B{row}").Value = account.Institution?.Name ?? "";
-                    ws.Cell($"C{row}").Value = account.Balance ?? 0m;
+                    ws.Cell($"C{row}").Value = context.ResolveValue(account.DisplayBalance, account.Balance);
                     ws.Cell($"C{row}").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
                     ws.Cell($"D{row}").Value = account.Currency?.Code ?? "";
-                    ws.Cell($"E{row}").Value = account.BuyingValue ?? 0m;
+                    ws.Cell($"E{row}").Value = context.ResolveValue(account.DisplayBuyingValue, account.BuyingValue);
                     ws.Cell($"E{row}").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
                     ws.Cell($"F{row}").Value = account.UnrealizedPnl ?? 0m;
                     ws.Cell($"F{row}").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
