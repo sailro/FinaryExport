@@ -110,3 +110,51 @@ Finary login requires TOTP 2-factor authentication. This is not optional—all u
 
 **Orchestration Log:** `.squad/orchestration-log/2026-03-12T08-24-basher.md`
 
+### Test Reconciliation Against Real Implementation (2026-03-12T08:48:00Z)
+
+**Status:** ✅ SUCCESS — 94/94 tests passing against Linus's real code
+
+**What Changed:**
+
+1. **Contract stubs removed:** Deleted entire `Contracts/` directory (7 files: FinaryOptions.cs, IFinaryApiClient.cs, ISessionStore.cs, ISheetWriter.cs, ITokenProvider.cs, IWorkbookExporter.cs, Models.cs). These were Basher's architecture-based stubs that are now superseded by the real implementation.
+
+2. **Project reference added:** `FinaryExport.Tests.csproj` now references `../src/FinaryExport/FinaryExport.csproj` instead of using local stubs. Removed redundant `ClosedXML` PackageReference (now flows transitively from the main project).
+
+3. **Solution file updated:** Added `FinaryExport.Tests` project to `FinaryExport.sln` under a `/tests/` folder.
+
+4. **Namespace alignment:**
+   - `FinaryExport.Models.Accounts` added to `WorkbookExporterTests.cs` (for `Account` type, which moved from flat `FinaryExport.Models` to sub-namespace)
+   - `FinaryExport.Models` (for `AssetCategory` enum) stayed the same — Linus kept it in root models namespace
+   - `FinaryExport.Auth` interfaces (`ITokenProvider`, `ISessionStore`) — identical signatures between stubs and real code
+   - `FinaryExport.Export.IWorkbookExporter` — identical signature
+   - `FinaryExport.Export.Sheets.ISheetWriter` — real namespace has `Sheets` sub-namespace (stubs used `FinaryExport.Export`), but tests don't directly reference `ISheetWriter`
+
+5. **Test code update:** `AssetCategory_ToUrlSegment_MapsCorrectly` test now uses the real `AssetCategoryExtensions.ToUrlSegment()` extension method instead of duplicating the switch statement locally.
+
+**Key Finding — Stubs Were Accurate:**
+The contract stubs matched Linus's implementation remarkably well. Interface signatures (`ITokenProvider`, `ISessionStore`, `IFinaryApiClient`, `IWorkbookExporter`) were identical or compatible. The main divergence is in model property nullability (`decimal` vs `decimal?`) and model sub-namespacing, but since tests operate at the HTTP/JSON layer (not deserialized models), this didn't cause issues.
+
+**Namespace Patterns in Real Implementation:**
+- `FinaryExport.Models` — enums, API envelope (`FinaryResponse<T>`, `FinaryError`)
+- `FinaryExport.Models.Accounts` — `Account`, `HoldingsAccount`, `AccountDetail`
+- `FinaryExport.Models.Portfolio` — `PortfolioSummary`, `TimeseriesData`, `DividendSummary`, `AllocationData`, `FeeSummary`
+- `FinaryExport.Models.Transactions` — `Transaction`
+- `FinaryExport.Models.User` — `UserProfile`, `Organization`, `Membership`
+- `FinaryExport.Models.Auth` — `ClerkTokenResponse`, `SignInResponse`, `SessionResponse`
+- `FinaryExport.Export.Sheets` — `ISheetWriter` and concrete sheet writers
+- `FinaryExport.Export.Formatting` — `ExcelStyles`
+
+**FinaryOptions Difference:** Stubs had `required string Email { get; init; }` — real impl uses `string Email { get; set; } = ""`. No test impact since tests don't construct FinaryOptions directly.
+
+### Cross-Team Update: Implementation Complete (2026-03-12T08:24:00Z)
+
+**From Linus:** Full backend implementation delivered.
+- 49 source files across 7 modules
+- Clean build, all references resolve
+- Auth: 6-step Clerk flow with session persistence
+- API: Typed endpoints for 10 categories with retry logic
+- Export: ClosedXML-based XLSX with 13 sheets
+- CLI: export, clear-session, version commands
+
+**Impact on Basher:** All 94 tests pass against live code without modification. Contract accuracy confirmed.
+
