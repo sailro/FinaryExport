@@ -57,4 +57,28 @@ Finary uses Clerk authentication with mandatory TOTP 2FA. Auth flow is 6-step pr
 
 **Impact on Linus:** Implement `ISessionStore.cs` interface and `EncryptedFileSessionStore.cs` implementation. Modify `ClerkAuthClient` to support warm-start flow: check for session → attempt warm start → fall back to cold start on failure. Add `SessionStorePath` config. Test both flows.
 
+### Implementation Complete: Linus (2026-03-12T08:24:00Z)
+
+**Status:** ✅ SUCCESS
+
+**Deliverables:**
+- Scaffolded `.NET 10` project under `src/FinaryExport/` with solution at repo root (`FinaryExport.sln`)
+- Implemented 49 source files across 7 architectural modules
+- Auth module: 6-step Clerk flow with warm/cold start, DPAPI encryption, 50-second token refresh
+- API client: Typed endpoints for 10 categories, rate limiting, 401/429 retry logic
+- Data models: Portfolio, 10 category-specific models, shared types (Account, Position, Transaction)
+- Export module: ClosedXML-based XLSX exporter, per-category sheets, 13 total sheets
+- CLI: `export`, `clear-session`, `version` commands via System.CommandLine
+- User directive honored: Comments only (no XML doc comments)
+
+**Build Status:** ✅ Builds clean, zero errors
+
+**Key Design Decisions:**
+- `FinaryOptions` uses mutable `set` (not `init`) for CLI config overrides
+- CA1416 (Windows platform) suppressed—DPAPI is intentionally Windows-only
+- Clerk response parsing handles nested envelopes (varies by endpoint)
+- Partial classes organize `FinaryApiClient` by endpoint category
+- AssetCategoryExtensions provide both API path format and display names
+
+**Orchestration Log:** `.squad/orchestration-log/2026-03-12T08-24-linus.md`
 

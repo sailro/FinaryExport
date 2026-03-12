@@ -38,3 +38,56 @@ Finary uses **Clerk** (clerk.finary.com) for authentication. The login is a 6-st
 - Auth module needs: HttpClient with CookieContainer, TOTP generator, background token refresh timer
 - All Clerk calls need `Origin: https://app.finary.com` and query params `__clerk_api_version=2025-11-10&_clerk_js_version=5.125.4`
 - Full analysis at `api-analysis.md`
+
+## Decision: Project Structure — src/FinaryExport/ subfolder
+
+**Author:** Linus (Backend Dev)  
+**Date:** 2026-03-12  
+**Scope:** Project scaffold
+
+The .NET project lives at `src/FinaryExport/` (not repo root), with the solution file `FinaryExport.sln` at the repo root. This keeps the .NET project separate from root-level artifacts (traffic datas, analysis docs, node_modules from httpproxymcp).
+
+### Alternatives Considered
+
+- **csproj at repo root** — Simpler, but mixes .NET build artifacts with traffic capture tooling. The `bin/`, `obj/` folders would clutter alongside `node_modules/`, `API traffic data`, etc.
+
+### Impact
+
+- Build from repo root: `dotnet build` (picks up the .sln)
+- Build from project: `cd src/FinaryExport && dotnet build`
+- All source paths in architecture.md map to `src/FinaryExport/{path}`
+
+## Decision: Test Project Uses Contract Stubs (Temporary)
+
+**Author:** Basher (Tester)  
+**Date:** 2026-03-12  
+**Scope:** Test infrastructure
+
+`FinaryExport.Tests` contains local interface and model stubs in `Contracts/` that mirror `architecture.md`. These let tests compile and pass before the implementation project exists.
+
+### When Linus's Code Lands
+
+Replace the `Contracts/` folder with a `<ProjectReference>` to `FinaryExport.csproj`. Delete the stubs. Tests reference the real interfaces.
+
+### Rationale
+
+Writing tests proactively against stable contracts (from `architecture.md`) catches design issues early. The stubs are minimal copies of the interface signatures — no behavior, just type shapes. The switch to real references will be mechanical.
+
+### Impact
+
+- Linus: no impact on implementation. If interface signatures change, coordinate with Basher to update tests.
+- CI: test project builds independently today. Will need solution-level build once `ProjectReference` is added.
+
+## Decision: No XML Doc Comments — Use Regular Comments Only
+
+**By:** the user (via Copilot)  
+**Date:** 2026-03-12  
+**Scope:** Code style and documentation
+
+All C# code uses regular comments (`//`) instead of XML doc comments (`///`). This is a project-wide style preference.
+
+### Impact
+
+- Implementation code (Linus): Use `//` for all comments, no `///` triple-slash docs
+- Test code (Basher): Use `//` for all comments
+- IntelliSense: Project will not auto-generate XML doc files, but comments still visible in IDE on hover
