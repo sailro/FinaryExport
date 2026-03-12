@@ -26,7 +26,7 @@ Finary login requires TOTP 2-factor authentication. This is not optional—all u
 
 **Scope:** Essential for autonomous authentication
 
-### Architecture Blueprint (2026-03-12)
+### Architecture Blueprint & Testing Strategy (2026-03-12)
 
 **From Rusty (Lead):** Architecture document finalized in `architecture.md`. Key decisions:
 
@@ -35,4 +35,23 @@ Finary login requires TOTP 2-factor authentication. This is not optional—all u
 - **PeriodicTimer (50s) token refresh** as `IHostedService` — autonomous background service. Basher tests should verify token refresh doesn't interfere with concurrent API calls.
 
 **Impact on Basher:** Test category failure isolation extensively (one category failure must not break others). Mock ITokenProvider for all auth tests. Verify PeriodicTimer behavior under load and concurrent category exports.
+
+### Session Persistence & Two-Tier Auth Testing (2026-03-12, D13)
+
+**From Rusty (Lead):** Architecture updated with session persistence to avoid TOTP on every run. New session storage layer + warm/cold auth flow.
+
+**Test Requirements:**
+- **Warm start success path:** Session cache hit, warm auth completes in <10s (vs 60s+ cold start).
+- **Warm start failure path:** Expired/corrupted session → graceful fallback to cold start. No auth failure.
+- **Session persistence:** DPAPI encryption verified; cleared by `--clear-session` flag.
+- **Non-fatal store failures:** Missing `SessionStorePath`, corrupted cache, write failures → auth succeeds anyway (cold start or in-memory fallback).
+- **Cache expiration:** Mock time-based cookie expiry; verify warm start rejects expired `__client` cookie.
+- **Concurrent test:** Multiple exports with shared session cache don't interfere.
+
+**Key Decision:** Session failures are non-fatal—never allowed to block authentication. Cold start always works as fallback.
+
+**Test Coverage:** Mock `ISessionStore`, test both auth flows in isolation and integrated. Verify that warm-start performance gain doesn't mask auth issues.
+
+**Impact on Basher:** Write tests for `ISessionStore` contract (load/save/clear), both auth flows (warm success/failure, cold), session cache concurrency, DPAPI-encrypted file access, and graceful fallback behavior.
+
 
