@@ -54,6 +54,114 @@ Add cookie/session persistence to skip the full 6-step Clerk auth on subsequent 
 
 ---
 
+### 2026-03-12: CurlImpersonate for TLS Fingerprint Bypass (D-curl)
+
+**Author:** Rusty (Lead) / Livingston (Protocol)  
+**Scope:** Auth + Infrastructure
+
+Adopt `Loxifi.CurlImpersonate` 1.1.0 with `BrowserProfile.Chrome136` for Chrome TLS fingerprint impersonation.
+
+**Key Points:**
+1. Cloudflare detects TLS fingerprints — .NET's `SslStream` is flagged regardless of HTTP headers.
+2. `CurlClient` used directly in ClerkAuthClient for Clerk API calls (not via HttpClientFactory).
+3. `CurlMessageHandler` bridges CurlClient into HttpMessageHandler for Finary API calls, preserving DelegatingHandler pipeline.
+4. Pinned to 1.1.0 — native dependency, treat upgrades carefully.
+
+**Alternatives rejected:** Python subprocess (cross-process complexity), TlsClient.NET (unmaintained, .NET 6 only).
+
+**Impact:** Auth and Finary API calls both bypass Cloudflare. ClerkDelegatingHandler removed.
+
+---
+
+### 2026-03-12: Multi-Profile Export (D-multiprofile)
+
+**Author:** Rusty (Lead)  
+**Scope:** Export + API
+
+Export one xlsx per Finary membership plus a unified aggregated file.
+
+**Key Points:**
+1. `GetAllProfilesAsync()` discovers personal + organization memberships.
+2. Per-profile exports use `ExportContext { UseDisplayValues = true }` — ownership-adjusted values from `display_balance`/`display_buying_value`.
+3. Unified export uses `UnifiedFinaryApiClient` with `UseDisplayValues = false` — raw computed totals.
+4. Output naming: `finary-export-{profile-name}.xlsx` + `finary-export-unified.xlsx`.
+
+**Impact:** Program.cs orchestrates multi-profile loop. ExportContext added. UnifiedFinaryApiClient added.
+
+---
+
+### 2026-03-12: UnifiedFinaryApiClient Decorator (D-unified)
+
+**Author:** Rusty (Lead)  
+**Scope:** API
+
+Transparent decorator over `IFinaryApiClient` that aggregates across all memberships.
+
+**Key Points:**
+1. Iterates all memberships, deduplicates entities by ID.
+2. Shared assets (ownership < 100%) scaled up: `display_balance / share = full_value`.
+3. Non-aggregatable endpoints (timeseries, allocations) use owner's data only.
+4. Caches merged account list to avoid redundant API calls.
+
+**Rationale:** Sheet writers remain unaware of multi-profile — they work against `IFinaryApiClient` regardless of whether it's per-profile or unified.
+
+---
+
+### 2026-03-12: PII Scrub Policy (D-pii)
+
+**Author:** Team consensus  
+**Scope:** Entire codebase + squad files
+
+All real personally identifiable information scrubbed from source, tests, and squad files.
+
+**Key Points:**
+1. Synthetic names: Jean Dupont, Marie Dupont, Claire Dupont.
+2. Synthetic IBANs, account names, institution names in test fixtures.
+3. `.squad/` files use "the user" — never real names.
+4. Export `.xlsx` files (containing real data) are gitignored.
+
+---
+
+### 2026-03-12: Rate Limiter at 5 req/s (D-ratelimit)
+
+**Author:** Livingston (Protocol) / Rusty (Lead)  
+**Scope:** Infrastructure
+
+Rate limiter set to 200ms interval (5 requests/second).
+
+**Key Points:**
+1. API analysis showed browser making ~2.5 req/s with no rate limit headers from Finary API.
+2. 5 req/s provides 2× headroom over observed browser rate.
+3. Implemented via `RateLimiter` class with semaphore-based gating.
+4. Applied in `FinaryDelegatingHandler` — transparent to API client.
+
+---
+
+### 2026-03-12: CompactConsoleFormatter (D-logging)
+
+**Author:** Linus (Backend)  
+**Scope:** Infrastructure
+
+Custom `ConsoleFormatter` for single-line log output: `"dbug: ClerkAuthClient: Token refreshed"`.
+
+**Key Points:**
+1. Strips namespace prefixes from category names.
+2. Maps log levels to 4-character codes (dbug, info, warn, fail, crit).
+3. `appsettings.json`: default level Information, HttpClient suppressed to Warning.
+
+---
+
+### 2026-03-12: No XML Doc Comments (D-noxml)
+
+**Author:** Team consensus  
+**Scope:** Entire codebase
+
+No XML doc comments (`///`). Use regular comments (`//`) only, sparingly, for non-obvious logic.
+
+**Rationale:** This is a private CLI tool, not a library. XML docs add noise without value. Code should be self-documenting.
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus

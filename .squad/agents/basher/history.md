@@ -158,3 +158,24 @@ The contract stubs matched Linus's implementation remarkably well. Interface sig
 
 **Impact on Basher:** All 94 tests pass against live code without modification. Contract accuracy confirmed.
 
+### Test Suite Expansion: 134 Tests (2026-03-12)
+
+**Context:** Major feature additions (CurlImpersonate auth, multi-profile export, UnifiedFinaryApiClient, Holdings sheet, ExportContext, FinaryDelegatingHandler) required new test coverage.
+
+**New test files (4):**
+- `Export/ExportContextTests.cs` — tests `UseDisplayValues` flag and `ResolveValue()` logic (display vs raw value selection)
+- `Export/HoldingsSheetTests.cs` — tests security-level export: ISIN, symbol, quantity, prices, P&L columns. Validates Account→SecurityPosition→SecurityInfo flattening.
+- `Infrastructure/FinaryDelegatingHandlerTests.cs` — tests auth header injection, rate limiting integration, 401 retry logic, 429 backoff behavior
+- `Api/UnifiedFinaryApiClientTests.cs` — tests decorator behavior: multi-membership aggregation, account deduplication by ID, shared asset scaling (`display_balance / share`), cache behavior
+
+**Updated test files:**
+- `Fixtures/ApiFixtures.cs` — expanded with SecurityPosition, SecurityInfo, HoldingsAccount, OwnershipEntry, FinaryProfile fixtures. All use synthetic PII (Jean/Marie/Claire Dupont).
+- Existing auth and API tests adapted for CurlImpersonate-based `ClerkAuthClient` constructor changes.
+
+**Test suite totals:**
+- **134 tests** (up from 94) — **40 new tests** added
+- **13 test files** across Auth/, Api/, Export/, Infrastructure/, Helpers/, Fixtures/
+- **Coverage areas:** Auth flow (cold/warm start), API client (categories, pagination, rate limiting), Export (all 5 sheets, ExportContext), Infrastructure (DelegatingHandler, CurlMessageHandler), Unified aggregation
+
+**Build:** ✅ Clean. **Tests:** ✅ All 134 pass.
+

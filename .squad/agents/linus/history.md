@@ -93,3 +93,97 @@ Finary uses Clerk authentication with mandatory TOTP 2FA. Auth flow is 6-step pr
 
 **Impact on Linus:** Implementation meets all test contracts. Interface signatures verified. Ready for CI/CD.
 
+### Auth Flow Change: Interactive Cold Start (2026-03-12)
+
+**Change:** Replaced stored-credential auth (Email/Password/TotpSecret from config) with interactive console prompts on cold start.
+
+**What changed:**
+- **Deleted:** `TotpGenerator.cs` — no longer auto-generating TOTP from a stored secret
+- **Removed:** `Otp.NET` package dependency
+- **Removed:** `Email`, `Password`, `TotpSecret` from `FinaryOptions` — credentials are never stored
+- **Added:** `ICredentialPrompt` interface + `ConsoleCredentialPrompt` implementation (masked password input)
+- **Updated:** `ClerkAuthClient.ColdStartAsync` — prompts user interactively instead of reading config
+- **Updated:** `Program.cs` — removed credential validation block (no longer applicable)
+- **Updated:** `ServiceCollectionExtensions.cs` — registered `ICredentialPrompt` in DI
+
+**Auth flow now:**
+1. Warm start: load persisted `__client` cookie → POST `/tokens` → JWT. No prompts.
+2. If warm start fails (no cookie, 401): interactive cold start → prompt Email, Password, TOTP Code → full 6-step Clerk flow → persist cookie.
+3. `--clear-session` still forces cold start.
+
+**Build:** ✅ Clean (0 warnings, 0 errors). **Tests:** ✅ All 94 pass.
+
+### Auth Flow Rewrite: Cloudflare 429 Fix (2026-03-12)
+
+**Root cause:** Cloudflare bot management was rejecting our Clerk API requests because we lacked browser-like headers (User-Agent, sec-ch-ua, sec-fetch-*) and Cloudflare cookies (__cf_bm, _cfuvid). The `/v1/environment` endpoint worked only because it was edge-cached (bypassing bot checks).
+
+**What changed:**
+- **ClerkAuthClient** rewritten: owns its HttpClient + CookieContainer directly (no IHttpClientFactory for Clerk), applies Chrome-like browser headers on every Clerk request
+- **Simplified cold start:** 3-step flow (sign_in → 2FA → extract session from response) — skips /v1/environment and /v1/client entirely, matching FinarySharp's proven approach
+- **Cloudflare warmup:** GET `https://app.finary.com` before auth to collect __cf_bm and _cfuvid cookies, which auto-flow to clerk.finary.com via CookieContainer
+- **Session persistence updated:** now saves SessionId + all cookies (not just __client). JWT not persisted (60s TTL, pointless). New `SessionData` record replaces raw cookie collection
+- **ISessionStore interface changed:** `SaveSessionAsync(SessionData)` / `LoadSessionAsync() → SessionData?`
+- **EncryptedFileSessionStore** updated for new data shape (breaking change for stored files — triggers cold start, self-healing)
+- **DI simplified:** removed shared CookieContainer singleton, removed "Clerk" named HttpClient, removed ClerkDelegatingHandler from registration
+- **ClerkAuthClient implements IDisposable** (owns HttpClient/Handler/SemaphoreSlim)
+- **Browser headers added:** User-Agent (Chrome 146), sec-ch-ua, sec-ch-ua-mobile, sec-ch-ua-platform, sec-fetch-dest/mode/site, Accept, Accept-Language
+- **Tests updated:** InMemorySessionStore, SessionStoreTests, ClerkAuthClientTests all adapted for SessionData and simplified flow
+
+**Key insight from FinarySharp reference:** CookieContainer on a self-owned HttpClient + Origin/Referer headers + FormUrlEncodedContent bodies + direct /sign_ins call is all you need. The /environment and /client preamble was unnecessary overhead that also triggered the 429.
+
+**Build:** ✅ Clean (0 warnings, 0 errors). **Tests:** ✅ All 94 pass.
+
+### Auth Rewrite: CurlImpersonate Adoption (2026-03-12)
+
+**Problem:** Even with browser headers and Cloudflare cookie warmup, Clerk requests still got 403s. The root cause was TLS fingerprint detection — .NET's `HttpClient` has a distinct TLS ClientHello that Cloudflare flags regardless of headers.
+
+**Solution:** Adopted `Loxifi.CurlImpersonate` (pinned 1.1.0) — a .NET wrapper around curl-impersonate that produces byte-identical Chrome TLS handshakes via `BrowserProfile.Chrome136`.
+
+**What changed:**
+- **ClerkAuthClient** rewritten to use `CurlClient` directly for all Clerk API calls (not HttpClientFactory). CurlClient handles its own cookie jar and TLS impersonation.
+- **CurlMessageHandler** added — bridges `CurlClient` into `HttpMessageHandler` so Finary API calls still go through HttpClientFactory with the DelegatingHandler pipeline (`FinaryDelegatingHandler` for auth headers, rate limiting, 401 retry, 429 backoff).
+- **Cold start simplified to 3 steps:** POST `/sign_ins` (email+password) → POST `/sign_ins/{id}/attempt_first_factor` (TOTP) → extract `__session` JWT from response. No `/environment` or `/client` preamble needed.
+- **Warm start unchanged:** load persisted cookies → POST `/tokens` → JWT.
+- **Removed:** browser header boilerplate (CurlImpersonate handles it), Cloudflare warmup GET (unnecessary with real Chrome TLS).
+- **DI changes (`ServiceCollectionExtensions.cs`):** CurlClient registered as singleton, CurlMessageHandler as primary handler for "Finary" HttpClient, FinaryDelegatingHandler as additional handler.
+
+**Build:** ✅ Clean. **Tests:** ✅ All 94 pass.
+
+### Model & Export Additions (2026-03-12)
+
+**New models:**
+- `SecurityPosition` — quantity, display_buying_value, display_current_value, linked SecurityInfo
+- `SecurityInfo` — ISIN, symbol, current_price
+- `HoldingsAccount` — account with expanded securities list
+- `OwnershipEntry` — membership ownership share percentage
+- `FinaryProfile` — record linking organization/membership with name and share
+- `AssetCategory` enum — 10 categories (checking, savings, real_estate, etc.)
+- `FinaryResponse<T>` — API response envelope with `result` property
+
+**New sheet:** `HoldingsSheet` — security-level export from investment accounts: ISIN, symbol, quantity, buy price, current price, value, unrealized P&L. Flattens Account→SecurityPosition→SecurityInfo.
+
+**ExportContext** added — carries `UseDisplayValues` flag. `ResolveValue()` picks display vs raw value per context.
+
+**Dead code removed:** `ClerkDelegatingHandler`, `FinaryJsonContext` (STJ source gen), unused Auth models (`ClerkTokenResponse`, `SignInResponse`, `SessionResponse`), `AccountDetail`, Otp.NET dependency.
+
+**Build:** ✅ Clean. **Tests:** updated.
+
+### Multi-Profile & Unified Export (2026-03-12)
+
+**Feature:** Multi-profile support via `GetAllProfilesAsync()` which discovers all organization memberships.
+
+**Export flow (Program.cs):**
+1. Discover all profiles (personal + organizations)
+2. For each profile: switch API context → fetch all data → write `finary-export-{name}.xlsx` with `ExportContext { UseDisplayValues = true }` (ownership-adjusted values)
+3. Aggregated export: `UnifiedFinaryApiClient` merges all profiles → write `finary-export-unified.xlsx` with `UseDisplayValues = false` (raw computed totals)
+
+**UnifiedFinaryApiClient:**
+- Decorator over `IFinaryApiClient` — transparent to sheet writers
+- Iterates all memberships, collects accounts/transactions/dividends, deduplicates by entity ID
+- Shared assets (ownership share < 100%) scaled up: `display_balance / share = full_value`
+- Caches merged account list to avoid redundant API calls
+- Non-aggregatable endpoints (timeseries, allocations) use owner's data only
+
+**Rate limiter:** Tuned from 2 req/s → 5 req/s (200ms interval). API showed browser at 2.5 req/s, no rate limit headers observed.
+
+**Build:** ✅ Clean. **Tests:** ✅ 134 pass (40 new tests added).
