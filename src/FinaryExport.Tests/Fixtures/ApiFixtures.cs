@@ -115,7 +115,12 @@ public static class ApiFixtures
                     {
                         "id": "membership_test_456",
                         "member_type": "owner",
-                        "user": { "is_organization_owner": true }
+                        "user": { "fullname": "Jean Dupont", "is_organization_owner": true }
+                    },
+                    {
+                        "id": "membership_test_789",
+                        "member_type": "User",
+                        "user": { "fullname": "Marie Dupont", "is_organization_owner": false }
                     }
                 ]
             }
@@ -261,7 +266,7 @@ public static class ApiFixtures
     }
     """;
 
-    public static string CategoryTransactionsPageResponse(int count, int pageSize) =>
+    public static string CategoryTransactionsPageResponse(int count) =>
         $$"""
         {
             "result": [
@@ -405,7 +410,7 @@ public static class ApiFixtures
     }
     """;
 
-    public static string ApiErrorResponse(int statusCode, string code, string message) => $$"""
+    public static string ApiErrorResponse(string code, string message) => $$"""
     {
         "result": null,
         "message": null,

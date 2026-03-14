@@ -6,6 +6,7 @@ Connects to the Finary API, authenticates via Clerk, and exports portfolio summa
 
 ## Prerequisites
 
+- **Windows 10 or later** — required (DPAPI session encryption and TLS impersonation depend on Windows-only native libraries)
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
 - NuGet packages are restored automatically by `dotnet build`
 
@@ -65,13 +66,55 @@ After successful login, the session is encrypted and cached locally using DPAPI 
 
 ## Output
 
-The tool generates one `.xlsx` workbook per Finary profile, plus a unified workbook that merges data from all profiles. Each workbook contains sheets for:
+Each profile export generates an `.xlsx` workbook. A unified workbook combining all profiles is also generated. A full profile for instance produces **14 sheets**:
 
-- **Portfolio Summary** — overall portfolio value, allocation, performance
-- **Accounts** — all bank and investment accounts across asset categories
-- **Holdings** — individual security positions
-- **Transactions** — buy/sell/income/expense records
-- **Dividends** — dividend income summary
+### Portfolio Summary
+
+Overall portfolio metrics:
+- Gross/net total, evolution (€ and %)
+- Per-category breakdown: account count and total balance for each asset category
+
+### Account Sheets (one per category with data)
+
+Up to 10 category-specific sheets — only created if the category has accounts:
+
+| Sheet | Category |
+|-------|----------|
+| Checkings | Bank checking accounts |
+| Savings | Savings accounts |
+| Investments | Investment/brokerage accounts |
+| Real Estate | Property holdings (SCPIs, etc.) |
+| Cryptos | Cryptocurrency accounts |
+| Fonds Euro | Euro-denominated funds |
+| Commodities | Commodity holdings |
+| Credits | Loans and credit lines |
+| Other Assets | Miscellaneous assets |
+| Startups | Startup equity/investments |
+
+Each account sheet has columns: **Name**, **Institution**, **Balance**, **Currency**, **Buying Value**, **Unrealized P&L**, **Annual Yield**, **IBAN**, **Opened At**, **Last Sync**.
+
+### Holdings
+
+Individual security positions from investment accounts: **Account**, **Name**, **ISIN**, **Symbol**, **Type**, **Quantity**, **Buy Price**, **Current Price**, **Value**, **+/- Value**, **+/- %**.
+
+### Transactions
+
+Buy/sell/income/expense records across checking, savings, investment, and credit accounts: **Category**, **Date**, **Name**, **Value**, **Type**, **Account**, **Institution**, **Currency**, **Commission**.
+
+> Note: Only 4 categories support transactions in the Finary API (checkings, savings, investments, credits). Real estate, cryptos, and others do not have transaction endpoints.
+
+### Dividends
+
+Three sections in one sheet:
+- **Summary** — annual income, past income, projected next year, yield %
+- **Past Dividends** — investment name, amount, payment date, type, category
+- **Upcoming Dividends** — investment name, projected amount, date, status, category
+
+### Multi-Profile
+
+The tool discovers all Finary profiles (personal + organization memberships) and exports:
+- One workbook per profile: `finary-export-{name}.xlsx` (ownership-adjusted values)
+- One unified workbook: `finary-export-unified.xlsx` (aggregated raw values across all profiles)
 
 ## License
 

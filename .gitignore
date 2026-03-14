@@ -1,0 +1,36 @@
+# Build outputs
+bin/
+obj/
+
+# IDE / editor
+.vs/
+*.user
+*.suo
+
+# Dependencies
+node_modules/
+
+# Sensitive files — never commit
+*.har
+state.json
+session.dat
+appsettings.*.json
+
+# Generated exports (contain real financial data)
+*.xlsx
+
+# Snapshot / dev artifacts
+finary-snapshot.txt
+package.json
+package-lock.json
+
+# Root-level Python dev tools ()
+/analyze_traffic.py
+
+# Squad: ignore runtime state (logs, inbox, sessions)
+.squad/orchestration-log/
+.squad/log/
+.squad/decisions/inbox/
+.squad/sessions/
+# Squad: SubSquad activation file (local to this machine)
+.squad-workstream

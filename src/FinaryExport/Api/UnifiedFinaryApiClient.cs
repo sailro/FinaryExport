@@ -20,7 +20,7 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
     // Caches merged accounts per category to avoid redundant API calls.
     // The PortfolioSummarySheet and AccountsSheet both call GetCategoryAccountsAsync
     // for the same categories — the cache prevents fetching twice.
-    private readonly Dictionary<AssetCategory, List<Account>> _accountCache = new();
+    private readonly Dictionary<AssetCategory, List<Account>> _accountCache = [];
 
     public UnifiedFinaryApiClient(IFinaryApiClient inner, List<FinaryProfile> profiles, ILogger logger)
     {
@@ -69,13 +69,39 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
             {
                 if (account.Id is null) continue;
 
-                // Keep the instance with the highest Balance (raw full value).
-                // For shared assets Balance is identical across memberships;
-                // for exclusive assets only one membership has the account.
-                if (!merged.TryGetValue(account.Id, out var existing) ||
-                    (account.Balance ?? 0m) > (existing.Balance ?? 0m))
+                if (merged.ContainsKey(account.Id))
+                    continue; // Already have this asset from another membership
+
+                // Unified view uses display values (EUR-converted) as the base.
+                // For shared assets (ownership < 100%), scale up: display_balance / share = full value.
+                var myShare = account.OwnershipRepartition?
+                    .FirstOrDefault(o => o.Membership?.Id == profile.MembershipId)?.Share;
+
+                if (myShare is > 0m and < 1m)
                 {
-                    merged[account.Id] = account;
+                    var fullBalance = account.DisplayBalance / myShare;
+                    var fullBuyingValue = account.DisplayBuyingValue.HasValue
+                        ? account.DisplayBuyingValue / myShare : null;
+
+                    merged[account.Id] = account with
+                    {
+                        Balance = fullBalance,
+                        DisplayBalance = fullBalance,
+                        BuyingValue = fullBuyingValue,
+                        DisplayBuyingValue = fullBuyingValue,
+                    };
+                }
+                else
+                {
+                    // Exclusive asset (share=1 or no repartition).
+                    // Use display values (EUR-converted) for consistency.
+                    merged[account.Id] = account with
+                    {
+                        Balance = account.DisplayBalance ?? account.Balance,
+                        DisplayBalance = account.DisplayBalance ?? account.Balance,
+                        BuyingValue = account.DisplayBuyingValue ?? account.BuyingValue,
+                        DisplayBuyingValue = account.DisplayBuyingValue ?? account.BuyingValue,
+                    };
                 }
             }
         }
@@ -170,7 +196,7 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
             }
         }
 
-        return merged.Values.OrderByDescending(t => t.Date).ToList();
+        return [.. merged.Values.OrderByDescending(t => t.Date)];
     }
 
     // ── Aggregated: dividends with entries merged by ID ──
@@ -243,7 +269,7 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
             }
         }
 
-        return merged.Values.ToList();
+        return [.. merged.Values];
     }
 
     // ── Aggregated: holdings accounts merged by ID ──
@@ -269,7 +295,7 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
             }
         }
 
-        return merged.Values.ToList();
+        return [.. merged.Values];
     }
 
     // ── Delegated to owner: timeseries, allocations, fees ──

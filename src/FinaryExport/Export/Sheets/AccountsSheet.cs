@@ -2,11 +2,13 @@
 using FinaryExport.Api;
 using FinaryExport.Export.Formatting;
 using FinaryExport.Models;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FinaryExport.Export.Sheets;
 
 // Writes one sheet per asset category with account data.
-public sealed class AccountsSheet : ISheetWriter
+public sealed class AccountsSheet(ILogger<AccountsSheet> logger) : ISheetWriter
 {
     public string SheetName => "Accounts";
 
@@ -58,14 +60,15 @@ public sealed class AccountsSheet : ISheetWriter
                 }
 
                 ExcelStyles.FinalizeSheet(ws);
+                logger.LogInformation("    ✓ {SheetName} ({AccountCount} accounts)", sheetName, accounts.Count);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 throw;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Per-category error isolation: skip this category
+                logger.LogWarning(ex, "Failed to export accounts for category {Category}", category);
             }
         }
     }

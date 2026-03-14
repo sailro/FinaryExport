@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/FinaryExport/FinaryExport.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="src/FinaryExport.Tests/FinaryExport.Tests.csproj" />
+  </Folder>
+</Solution>

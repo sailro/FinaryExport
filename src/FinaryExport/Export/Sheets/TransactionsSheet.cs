@@ -2,11 +2,13 @@
 using FinaryExport.Api;
 using FinaryExport.Export.Formatting;
 using FinaryExport.Models;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FinaryExport.Export.Sheets;
 
 // Writes a single Transactions sheet with all transactions across categories.
-public sealed class TransactionsSheet : ISheetWriter
+public sealed class TransactionsSheet(ILogger<TransactionsSheet> logger) : ISheetWriter
 {
     public string SheetName => "Transactions";
 
@@ -29,12 +31,12 @@ public sealed class TransactionsSheet : ISheetWriter
         int row = 2;
         int totalRecords = 0;
 
-        // Query all categories — some may have no transactions
-        foreach (var category in Enum.GetValues<AssetCategory>())
+        foreach (var category in Enum.GetValues<AssetCategory>().Where(c => c.HasTransactions()))
         {
             try
             {
                 var transactions = await api.GetCategoryTransactionsAsync(category, ct: ct);
+                int categoryRecords = 0;
                 foreach (var tx in transactions)
                 {
                     ws.Cell($"A{row}").Value = category.ToDisplayName();
@@ -50,15 +52,20 @@ public sealed class TransactionsSheet : ISheetWriter
                     ws.Cell($"I{row}").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
                     row++;
                     totalRecords++;
+                    categoryRecords++;
+                }
+                if (categoryRecords > 0)
+                {
+                    logger.LogInformation("    ✓ {Category} ({RecordCount} transactions)", category.ToDisplayName(), categoryRecords);
                 }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 throw;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Skip this category's transactions
+                logger.LogWarning(ex, "Failed to export transactions for category {Category}", category);
             }
         }
 

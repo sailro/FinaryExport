@@ -18,11 +18,11 @@ public sealed class UnifiedFinaryApiClientTests
     private readonly ILogger _logger = NullLogger.Instance;
 
     private static readonly FinaryProfile Owner =
-        new("org1", "membership-owner", "the user");
+        new("org1", "membership-owner", "Jean Dupont");
     private static readonly FinaryProfile Member2 =
-        new("org1", "membership-alice", "Alice Martin");
+        new("org1", "membership-Marie", "Marie Dupont");
     private static readonly FinaryProfile Member3 =
-        new("org1", "membership-bob", "Bob Martin");
+        new("org1", "membership-Claire", "Claire Dupont");
 
     private static readonly List<FinaryProfile> AllProfiles = [Owner, Member2, Member3];
 
@@ -64,11 +64,29 @@ public sealed class UnifiedFinaryApiClientTests
                 {
                     "membership-owner" => Task.FromResult(new List<Account>
                     {
-                        new() { Id = sharedId, Name = "12 Rue du Marché", Balance = 790200m, DisplayBalance = 687474m }
+                        new()
+                        {
+                            Id = sharedId, Name = "12 Rue de la Paix, 75002 Paris, France",
+                            Balance = 790200m, DisplayBalance = 687474m,
+                            OwnershipRepartition =
+                            [
+                                new() { Share = 0.87m, Membership = new() { Id = "membership-owner" } },
+                                new() { Share = 0.13m, Membership = new() { Id = "membership-Marie" } },
+                            ]
+                        }
                     }),
-                    "membership-alice" => Task.FromResult(new List<Account>
+                    "membership-Marie" => Task.FromResult(new List<Account>
                     {
-                        new() { Id = sharedId, Name = "12 Rue du Marché", Balance = 790200m, DisplayBalance = 102726m }
+                        new()
+                        {
+                            Id = sharedId, Name = "12 Rue de la Paix, 75002 Paris, France",
+                            Balance = 790200m, DisplayBalance = 102726m,
+                            OwnershipRepartition =
+                            [
+                                new() { Share = 0.87m, Membership = new() { Id = "membership-owner" } },
+                                new() { Share = 0.13m, Membership = new() { Id = "membership-Marie" } },
+                            ]
+                        }
                     }),
                     _ => Task.FromResult(new List<Account>())
                 };
@@ -95,13 +113,13 @@ public sealed class UnifiedFinaryApiClientTests
                     {
                         new() { Id = "acc-jean-1", Name = "Jean Livret A", Balance = 10000m }
                     }),
-                    "membership-alice" => Task.FromResult(new List<Account>
+                    "membership-Marie" => Task.FromResult(new List<Account>
                     {
-                        new() { Id = "acc-alice-1", Name = "Alice Livret A", Balance = 5000m }
+                        new() { Id = "acc-Marie-1", Name = "Marie Livret A", Balance = 5000m }
                     }),
-                    "membership-bob" => Task.FromResult(new List<Account>
+                    "membership-Claire" => Task.FromResult(new List<Account>
                     {
-                        new() { Id = "acc-bob-1", Name = "Bob LEP Martin", Balance = 3000m }
+                        new() { Id = "acc-Claire-1", Name = "Claire LEP", Balance = 3000m }
                     }),
                     _ => Task.FromResult(new List<Account>())
                 };
@@ -110,7 +128,7 @@ public sealed class UnifiedFinaryApiClientTests
         var result = await client.GetCategoryAccountsAsync(AssetCategory.Savings);
 
         result.Should().HaveCount(3, "all exclusive accounts should be included");
-        result.Select(a => a.Id).Should().BeEquivalentTo(["acc-jean-1", "acc-alice-1", "acc-bob-1"]);
+        result.Select(a => a.Id).Should().BeEquivalentTo(["acc-jean-1", "acc-Marie-1", "acc-Claire-1"]);
         result.Sum(a => a.Balance ?? 0m).Should().Be(18000m, "10k + 5k + 3k");
     }
 
@@ -127,12 +145,12 @@ public sealed class UnifiedFinaryApiClientTests
                     "membership-owner" => Task.FromResult(new List<Account>
                     {
                         new() { Id = "shared-1", Name = "Joint Checking", Balance = 5000m, DisplayBalance = 2500m },
-                        new() { Id = "owner-only", Name = "Seb PEL", Balance = 8000m }
+                        new() { Id = "owner-only", Name = "Jean PEL", Balance = 8000m }
                     }),
-                    "membership-alice" => Task.FromResult(new List<Account>
+                    "membership-Marie" => Task.FromResult(new List<Account>
                     {
                         new() { Id = "shared-1", Name = "Joint Checking", Balance = 5000m, DisplayBalance = 2500m },
-                        new() { Id = "alice-only", Name = "Alice LEP", Balance = 4000m }
+                        new() { Id = "Marie-only", Name = "Marie LEP", Balance = 4000m }
                     }),
                     _ => Task.FromResult(new List<Account>())
                 };
@@ -141,7 +159,7 @@ public sealed class UnifiedFinaryApiClientTests
         var result = await client.GetCategoryAccountsAsync(AssetCategory.Checkings);
 
         result.Should().HaveCount(3, "shared-1 once + 2 exclusives");
-        result.Select(a => a.Id).Should().BeEquivalentTo(["shared-1", "owner-only", "alice-only"]);
+        result.Select(a => a.Id).Should().BeEquivalentTo(["shared-1", "owner-only", "Marie-only"]);
     }
 
     [Fact]
@@ -150,11 +168,11 @@ public sealed class UnifiedFinaryApiClientTests
         var (mock, client) = CreateContextTrackingClient([Owner], out _);
 
         mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Checkings, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Account>
-            {
-                new() { Id = "valid-1", Name = "Valid", Balance = 1000m },
+            .ReturnsAsync(
+			[
+				new() { Id = "valid-1", Name = "Valid", Balance = 1000m },
                 new() { Id = null, Name = "No ID", Balance = 500m }
-            });
+            ]);
 
         var result = await client.GetCategoryAccountsAsync(AssetCategory.Checkings);
 
@@ -163,7 +181,7 @@ public sealed class UnifiedFinaryApiClientTests
     }
 
     [Fact]
-    public async Task GetCategoryAccounts_KeepsHighestBalance()
+    public async Task GetCategoryAccounts_FirstSeenWins()
     {
         var (mock, client) = CreateContextTrackingClient(AllProfiles, out var ctx);
 
@@ -176,7 +194,7 @@ public sealed class UnifiedFinaryApiClientTests
                     {
                         new() { Id = "acc-1", Name = "Test", Balance = 100m }
                     }),
-                    "membership-alice" => Task.FromResult(new List<Account>
+                    "membership-Marie" => Task.FromResult(new List<Account>
                     {
                         new() { Id = "acc-1", Name = "Test", Balance = 200m }
                     }),
@@ -187,7 +205,7 @@ public sealed class UnifiedFinaryApiClientTests
         var result = await client.GetCategoryAccountsAsync(AssetCategory.Savings);
 
         result.Should().HaveCount(1);
-        result[0].Balance.Should().Be(200m, "higher balance version is kept");
+        result[0].Balance.Should().Be(100m, "first-seen version (owner) is kept");
     }
 
     [Fact]
@@ -196,7 +214,7 @@ public sealed class UnifiedFinaryApiClientTests
         var (mock, client) = CreateContextTrackingClient(AllProfiles, out _);
 
         mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Savings, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Account> { new() { Id = "a1", Balance = 100m } });
+            .ReturnsAsync([new() { Id = "a1", Balance = 100m }]);
 
         var result1 = await client.GetCategoryAccountsAsync(AssetCategory.Savings);
         var result2 = await client.GetCategoryAccountsAsync(AssetCategory.Savings);
@@ -210,6 +228,87 @@ public sealed class UnifiedFinaryApiClientTests
     }
 
     // ================================================================
+    // OWNERSHIP SCALING
+    // ================================================================
+
+    [Fact]
+    public async Task GetCategoryAccounts_OwnershipScaling_ComputesFullBalance()
+    {
+        // Owner has 60% share → DisplayBalance is 60% of full balance
+        // Production: fullBalance = DisplayBalance / share = 6000 / 0.60 = 10000
+        var (mock, client) = CreateContextTrackingClient([Owner], out var ctx);
+
+        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.RealEstates, It.IsAny<CancellationToken>()))
+            .Returns(() => Task.FromResult(new List<Account>
+            {
+                new()
+                {
+                    Id = "prop-1", Name = "Apartment",
+                    Balance = 10000m, DisplayBalance = 6000m,
+                    OwnershipRepartition =
+                    [
+                        new() { Share = 0.60m, Membership = new() { Id = "membership-owner" } },
+                        new() { Share = 0.40m, Membership = new() { Id = "other-member" } }
+                    ]
+                }
+            }));
+
+        var result = await client.GetCategoryAccountsAsync(AssetCategory.RealEstates);
+
+        result.Should().HaveCount(1);
+        result[0].Balance.Should().Be(10000m, "6000 / 0.60 = 10000");
+    }
+
+    [Fact]
+    public async Task GetCategoryAccounts_ExclusiveAsset_UsesDisplayBalanceDirectly()
+    {
+        // No OwnershipRepartition → exclusive asset → Balance = DisplayBalance ?? Balance
+        var (mock, client) = CreateContextTrackingClient([Owner], out var ctx);
+
+        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Savings, It.IsAny<CancellationToken>()))
+            .Returns(() => Task.FromResult(new List<Account>
+            {
+                new()
+                {
+                    Id = "savings-1", Name = "Livret",
+                    Balance = 5000m, DisplayBalance = 4800m,
+                    OwnershipRepartition = null
+                }
+            }));
+
+        var result = await client.GetCategoryAccountsAsync(AssetCategory.Savings);
+
+        result.Should().HaveCount(1);
+        result[0].Balance.Should().Be(4800m, "exclusive asset uses DisplayBalance when available");
+    }
+
+    [Fact]
+    public async Task GetCategoryAccounts_FullOwnership_UsesDisplayBalanceDirectly()
+    {
+        // Share == 1.0 → not partial → uses DisplayBalance directly (else branch)
+        var (mock, client) = CreateContextTrackingClient([Owner], out var ctx);
+
+        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Savings, It.IsAny<CancellationToken>()))
+            .Returns(() => Task.FromResult(new List<Account>
+            {
+                new()
+                {
+                    Id = "full-1", Name = "PEL",
+                    Balance = 8000m, DisplayBalance = 8000m,
+                    OwnershipRepartition =
+                    [
+                        new() { Share = 1.0m, Membership = new() { Id = "membership-owner" } }
+                    ]
+                }
+            }));
+
+        var result = await client.GetCategoryAccountsAsync(AssetCategory.Savings);
+
+        result.Should().HaveCount(1);
+        result[0].Balance.Should().Be(8000m, "full ownership uses DisplayBalance directly");
+    }
+
+    // ================================================================
     // PORTFOLIO SUMMARY
     // ================================================================
 
@@ -220,12 +319,12 @@ public sealed class UnifiedFinaryApiClientTests
 
         SetupOwnerPortfolio(mock, 150000m, 140000m, evolution: 5000m);
 
-        // Investments: 100k from owner, 30k exclusive from Alice
+        // Investments: 100k from owner, 30k exclusive from Marie
         mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Investments, It.IsAny<CancellationToken>()))
             .Returns(() => ctx.CurrentMembershipId switch
             {
                 "membership-owner" => Task.FromResult(new List<Account> { new() { Id = "inv-1", Balance = 100000m } }),
-                "membership-alice" => Task.FromResult(new List<Account> { new() { Id = "inv-2", Balance = 30000m } }),
+                "membership-Marie" => Task.FromResult(new List<Account> { new() { Id = "inv-2", Balance = 30000m } }),
                 _ => Task.FromResult(new List<Account>())
             });
 
@@ -242,7 +341,7 @@ public sealed class UnifiedFinaryApiClientTests
         {
             if (cat is AssetCategory.Investments or AssetCategory.Savings) continue;
             mock.Setup(x => x.GetCategoryAccountsAsync(cat, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new List<Account>());
+                .ReturnsAsync([]);
         }
 
         var portfolio = await client.GetPortfolioAsync();
@@ -276,7 +375,7 @@ public sealed class UnifiedFinaryApiClientTests
         {
             if (cat is AssetCategory.Investments or AssetCategory.Credits) continue;
             mock.Setup(x => x.GetCategoryAccountsAsync(cat, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new List<Account>());
+                .ReturnsAsync([]);
         }
 
         var portfolio = await client.GetPortfolioAsync();
@@ -294,7 +393,7 @@ public sealed class UnifiedFinaryApiClientTests
         foreach (var cat in Enum.GetValues<AssetCategory>())
         {
             mock.Setup(x => x.GetCategoryAccountsAsync(cat, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new List<Account>());
+                .ReturnsAsync([]);
         }
 
         var portfolio = await client.GetPortfolioAsync();
@@ -320,10 +419,10 @@ public sealed class UnifiedFinaryApiClientTests
                     new() { Id = 1001, Name = "Shared TX", Date = "2025-01-15", Value = 500m },
                     new() { Id = 1002, Name = "Owner TX", Date = "2025-01-10", Value = 200m }
                 }),
-                "membership-alice" => Task.FromResult(new List<Transaction>
+                "membership-Marie" => Task.FromResult(new List<Transaction>
                 {
                     new() { Id = 1001, Name = "Shared TX", Date = "2025-01-15", Value = 500m },
-                    new() { Id = 1003, Name = "Alice TX", Date = "2025-01-12", Value = 300m }
+                    new() { Id = 1003, Name = "Marie TX", Date = "2025-01-12", Value = 300m }
                 }),
                 _ => Task.FromResult(new List<Transaction>())
             });
@@ -347,7 +446,7 @@ public sealed class UnifiedFinaryApiClientTests
                     new() { Id = 1, Date = "2025-01-01", Value = 100m },
                     new() { Id = 2, Date = "2025-03-01", Value = 200m }
                 }),
-                "membership-alice" => Task.FromResult(new List<Transaction>
+                "membership-Marie" => Task.FromResult(new List<Transaction>
                 {
                     new() { Id = 3, Date = "2025-02-01", Value = 300m }
                 }),
@@ -380,7 +479,7 @@ public sealed class UnifiedFinaryApiClientTests
                     AnnualIncome = 2000m, PastIncome = 700m, Yield = 3.5m,
                     PastDividends = [sharedDiv, ownerDiv], UpcomingDividends = []
                 }),
-                "membership-alice" => Task.FromResult<DividendSummary?>(new DividendSummary
+                "membership-Marie" => Task.FromResult<DividendSummary?>(new DividendSummary
                 {
                     AnnualIncome = 600m, PastIncome = 600m, Yield = 2.0m,
                     PastDividends = [sharedDiv, memberDiv], UpcomingDividends = []
@@ -425,10 +524,10 @@ public sealed class UnifiedFinaryApiClientTests
                 {
                     new() { Id = "ha-1", Name = "PEA BNP", Balance = 50000m }
                 }),
-                "membership-alice" => Task.FromResult(new List<HoldingsAccount>
+                "membership-Marie" => Task.FromResult(new List<HoldingsAccount>
                 {
                     new() { Id = "ha-1", Name = "PEA BNP", Balance = 50000m },
-                    new() { Id = "ha-2", Name = "Alice CTO", Balance = 10000m }
+                    new() { Id = "ha-2", Name = "Marie CTO", Balance = 10000m }
                 }),
                 _ => Task.FromResult(new List<HoldingsAccount>())
             });
@@ -478,7 +577,7 @@ public sealed class UnifiedFinaryApiClientTests
         var (mock, client) = CreateContextTrackingClient([Owner], out _);
 
         mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Savings, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Account> { new() { Id = "a1", Name = "Test", Balance = 1000m } });
+            .ReturnsAsync([new() { Id = "a1", Name = "Test", Balance = 1000m }]);
 
         var result = await client.GetCategoryAccountsAsync(AssetCategory.Savings);
 

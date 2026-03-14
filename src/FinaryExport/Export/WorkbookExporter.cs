@@ -5,41 +5,33 @@ using Microsoft.Extensions.Logging;
 
 namespace FinaryExport.Export;
 
-public sealed class WorkbookExporter : IWorkbookExporter
+public sealed class WorkbookExporter(IEnumerable<ISheetWriter> writers, ILogger<WorkbookExporter> logger)
+	: IWorkbookExporter
 {
-    private readonly IEnumerable<ISheetWriter> _writers;
-    private readonly ILogger<WorkbookExporter> _logger;
-
-    public WorkbookExporter(IEnumerable<ISheetWriter> writers, ILogger<WorkbookExporter> logger)
-    {
-        _writers = writers;
-        _logger = logger;
-    }
-
-    public async Task ExportAsync(string outputPath, IFinaryApiClient api, ExportContext? context, CancellationToken ct)
+	public async Task ExportAsync(string outputPath, IFinaryApiClient api, ExportContext? context, CancellationToken ct)
     {
         var ctx = context ?? new ExportContext();
         using var workbook = new XLWorkbook();
         int successCount = 0;
         int errorCount = 0;
 
-        foreach (var writer in _writers)
+        foreach (var writer in writers)
         {
             try
             {
-                _logger.LogInformation("  Exporting {SheetName}...", writer.SheetName);
+                logger.LogInformation("  Exporting {SheetName}...", writer.SheetName);
                 await writer.WriteAsync(workbook, api, ctx, ct);
-                _logger.LogInformation("  \u2713 {SheetName}", writer.SheetName);
+                logger.LogInformation("  \u2713 {SheetName}", writer.SheetName);
                 successCount++;
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
-                _logger.LogWarning("  Export cancelled during {SheetName}", writer.SheetName);
+                logger.LogWarning("  Export cancelled during {SheetName}", writer.SheetName);
                 break;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "  \u2717 {SheetName} failed: {Message}", writer.SheetName, ex.Message);
+                logger.LogError(ex, "  \u2717 {SheetName} failed: {Message}", writer.SheetName, ex.Message);
                 AddErrorSheet(workbook, writer.SheetName, ex);
                 errorCount++;
             }
@@ -53,8 +45,8 @@ public sealed class WorkbookExporter : IWorkbookExporter
         }
 
         workbook.SaveAs(outputPath);
-        _logger.LogInformation("Saved: {OutputPath} ({SheetCount} sheets, {Errors} errors)",
-            outputPath, successCount + errorCount, errorCount);
+        logger.LogInformation("Saved: {OutputPath} ({SheetCount} sheets, {Errors} errors)",
+            outputPath, workbook.Worksheets.Count, errorCount);
     }
 
     private static void AddErrorSheet(XLWorkbook workbook, string sheetName, Exception ex)

@@ -2,11 +2,13 @@ using ClosedXML.Excel;
 using FinaryExport.Api;
 using FinaryExport.Export.Formatting;
 using FinaryExport.Models;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FinaryExport.Export.Sheets;
 
 // Exports individual securities from investment accounts with full position details.
-public sealed class HoldingsSheet : ISheetWriter
+public sealed class HoldingsSheet(ILogger<HoldingsSheet> logger) : ISheetWriter
 {
     public string SheetName => "Holdings";
 
@@ -72,5 +74,6 @@ public sealed class HoldingsSheet : ISheetWriter
         }
 
         ExcelStyles.FinalizeSheet(ws);
+        logger.LogInformation("    ✓ {SecuritiesCount} securities across {AccountCount} accounts", rows.Count, accounts.Count(a => a.Securities is not null));
     }
 }

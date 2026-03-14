@@ -23,10 +23,7 @@ exportCommand.AddOption(outputOption);
 exportCommand.AddOption(periodOption);
 exportCommand.AddOption(clearSessionOption);
 
-exportCommand.SetHandler(async (string? output, string? period, bool clearSession) =>
-{
-    await RunExportAsync(output, period, clearSession);
-}, outputOption, periodOption, clearSessionOption);
+exportCommand.SetHandler(RunExportAsync, outputOption, periodOption, clearSessionOption);
 
 // Clear session command
 var clearCommand = new Command("clear-session", "Clear saved authentication session");
@@ -56,10 +53,7 @@ rootCommand.AddCommand(versionCommand);
 rootCommand.AddOption(outputOption);
 rootCommand.AddOption(periodOption);
 rootCommand.AddOption(clearSessionOption);
-rootCommand.SetHandler(async (string? output, string? period, bool clearSession) =>
-{
-    await RunExportAsync(output, period, clearSession);
-}, outputOption, periodOption, clearSessionOption);
+rootCommand.SetHandler(RunExportAsync, outputOption, periodOption, clearSessionOption);
 
 return await rootCommand.InvokeAsync(args);
 
@@ -203,7 +197,7 @@ static string BuildUnifiedPath(string baseOutput)
 static string SanitizeFileName(string name)
 {
     var invalid = Path.GetInvalidFileNameChars();
-    var sanitized = new string(name.Select(c => invalid.Contains(c) ? '_' : c).ToArray());
+    var sanitized = new string([.. name.Select(c => invalid.Contains(c) ? '_' : c)]);
     return sanitized.Trim().ToLowerInvariant().Replace(' ', '-');
 }
 

@@ -1,10 +1,12 @@
 using ClosedXML.Excel;
 using FinaryExport.Api;
 using FinaryExport.Export.Formatting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FinaryExport.Export.Sheets;
 
-public sealed class DividendsSheet : ISheetWriter
+public sealed class DividendsSheet(ILogger<DividendsSheet> logger) : ISheetWriter
 {
     public string SheetName => "Dividends";
 
@@ -39,6 +41,7 @@ public sealed class DividendsSheet : ISheetWriter
         ws.Cell("B7").Style.NumberFormat.Format = ExcelStyles.PercentFormat;
 
         // Past dividends detail
+        int pastCount = 0;
         if (dividends?.PastDividends is { Count: > 0 })
         {
             int row = 10;
@@ -50,21 +53,25 @@ public sealed class DividendsSheet : ISheetWriter
             ws.Cell($"B{row}").Value = "Amount";
             ws.Cell($"C{row}").Value = "Date";
             ws.Cell($"D{row}").Value = "Type";
+            ws.Cell($"E{row}").Value = "Category";
             ExcelStyles.ApplyHeaderStyle(ws.Row(row));
             row++;
 
             foreach (var div in dividends.PastDividends)
             {
-                ws.Cell($"A{row}").Value = div.AssetType ?? "";
+                ws.Cell($"A{row}").Value = div.Asset?.Name ?? div.Holding?.Name ?? div.AssetType ?? "";
                 ws.Cell($"B{row}").Value = div.Amount ?? 0m;
                 ws.Cell($"B{row}").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
                 ws.Cell($"C{row}").Value = div.PaymentAt ?? "";
                 ws.Cell($"D{row}").Value = div.AssetSubtype ?? "";
+                ws.Cell($"E{row}").Value = div.AssetType ?? "";
                 row++;
             }
+            pastCount = dividends.PastDividends.Count;
         }
 
         // Upcoming dividends detail
+        int upcomingCount = 0;
         if (dividends?.UpcomingDividends is { Count: > 0 })
         {
             int row = (dividends?.PastDividends?.Count ?? 0) + 14;
@@ -75,21 +82,25 @@ public sealed class DividendsSheet : ISheetWriter
             ws.Cell($"A{row}").Value = "Name";
             ws.Cell($"B{row}").Value = "Amount";
             ws.Cell($"C{row}").Value = "Date";
-            ws.Cell($"D{row}").Value = "Type";
+            ws.Cell($"D{row}").Value = "Status";
+            ws.Cell($"E{row}").Value = "Category";
             ExcelStyles.ApplyHeaderStyle(ws.Row(row));
             row++;
 
             foreach (var div in dividends!.UpcomingDividends)
             {
-                ws.Cell($"A{row}").Value = div.AssetType ?? "";
+                ws.Cell($"A{row}").Value = div.Asset?.Name ?? div.Holding?.Name ?? div.AssetType ?? "";
                 ws.Cell($"B{row}").Value = div.Amount ?? 0m;
                 ws.Cell($"B{row}").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
                 ws.Cell($"C{row}").Value = div.PaymentAt ?? "";
                 ws.Cell($"D{row}").Value = div.Status ?? "";
+                ws.Cell($"E{row}").Value = div.AssetType ?? "";
                 row++;
             }
+            upcomingCount = dividends.UpcomingDividends.Count;
         }
 
         ExcelStyles.FinalizeSheet(ws, 3);
+        logger.LogInformation("    ✓ Past ({PastCount}), Upcoming ({UpcomingCount})", pastCount, upcomingCount);
     }
 }
