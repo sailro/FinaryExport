@@ -30,7 +30,7 @@ finary-snapshot.txt
 package.json
 package-lock.json
 
-# Root-level Python dev tools ()
+# Root-level Python dev tools
 /analyze_traffic.py
 
 # Squad: ignore runtime state (logs, inbox, sessions)
