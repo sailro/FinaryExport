@@ -187,3 +187,37 @@ Finary uses Clerk authentication with mandatory TOTP 2FA. Auth flow is 6-step pr
 **Rate limiter:** Tuned from 2 req/s → 5 req/s (200ms interval). API showed browser at 2.5 req/s, no rate limit headers observed.
 
 **Build:** ✅ Clean. **Tests:** ✅ 134 pass (40 new tests added).
+
+### Dividend Names Fix (2026-03-12)
+
+**Problem:** Dividends sheet showed asset type categories ("Scpi", "Security", "Fund") in Name column instead of actual investment names ("Remake Live", "Iroko Zen", "Pierval Santé").
+
+**Root cause:** `DividendEntry.Asset` and `DividendEntry.Holding` were `JsonElement?` — not typed. Sheet writer used `AssetType` instead.
+
+**Solution:**
+1. Created `DividendAssetInfo` record with `Id`, `Type`, `Name`, `CorrelationId`, `LogoUrl`
+2. Changed `DividendEntry.Asset` and `DividendEntry.Holding` from `JsonElement?` to `DividendAssetInfo?`
+3. Updated `DividendsSheet.cs` to use `Asset?.Name ?? Holding?.Name ?? AssetType` (fallback chain)
+4. Added new column E "Category" for `AssetType` (preserves broader category info)
+
+**Key insight:** Both `asset` and `holding` in API response have identical structure and contain the investment name. They're interchangeable for display purposes.
+
+**Files modified:**
+- `src/FinaryExport/Models/Portfolio/DividendSummary.cs`
+- `src/FinaryExport/Export/Sheets/DividendsSheet.cs`
+
+**Build:** ✅ Clean. **Tests:** ✅ 134 pass (no test changes needed — models deserialize correctly with snake_case naming policy).
+
+### Transaction Category Filter (2026-03-12)
+
+**Problem:** `TransactionsSheet` iterated all 10 `AssetCategory` enum values, but only 4 have `/portfolio/{category}/transactions` endpoints (Checkings, Savings, Investments, Credits). The other 6 returned HTTP 404, producing 30 noisy warnings per export run (6 unsupported × 5 profiles).
+
+**Solution:** Added `HasTransactions()` extension method to `AssetCategoryExtensions` (Option A from the task). `TransactionsSheet.WriteAsync` now filters with `.Where(c => c.HasTransactions())` before querying. The existing per-category try/catch remains as a safety net for genuine errors on supported categories.
+
+**Key insight:** `UnifiedFinaryApiClient.GetCategoryTransactionsAsync` receives a single category — it doesn't iterate. Only `TransactionsSheet` needed the filter.
+
+**Files modified:**
+- `src/FinaryExport/Models/AssetCategory.cs` — added `HasTransactions()` extension
+- `src/FinaryExport/Export/Sheets/TransactionsSheet.cs` — filtered category loop
+
+**Build:** ✅ Clean (0 warnings, 0 errors). **Tests:** ✅ 134 pass (no test changes needed).

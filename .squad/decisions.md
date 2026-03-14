@@ -2,6 +2,23 @@
 
 ## Active Decisions
 
+### 2026-03-14: Transaction-Capable Categories via HasTransactions()
+
+**Author:** Linus (Backend)  
+**Scope:** Models / Export
+
+The Finary API only supports `/portfolio/{category}/transactions` for 4 of 10 `AssetCategory` values: Checkings, Savings, Investments, Credits. The other 6 return HTTP 404. Querying them produced 30 misleading warnings per export run.
+
+**Decision:** Added `AssetCategory.HasTransactions()` extension method in `AssetCategoryExtensions`. Callers that iterate categories for transaction queries should filter with `.Where(c => c.HasTransactions())`.
+
+The per-category try/catch in `TransactionsSheet` is retained as a safety net for genuine errors on supported categories.
+
+**Impact:**
+- If Finary adds transaction support for new categories in the future, update the switch expression in `HasTransactions()`.
+- Any new code iterating categories for transactions should use this filter.
+
+---
+
 ### 2026-03-12: FinaryExport Architecture Blueprint
 
 **Author:** Rusty (Lead)  
