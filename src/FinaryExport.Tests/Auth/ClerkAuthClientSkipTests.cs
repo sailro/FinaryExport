@@ -11,30 +11,30 @@ namespace FinaryExport.Tests.Auth;
 // Tests that ClerkAuthClient guards against refresh before login.
 public sealed class ClerkAuthClientSkipTests
 {
-    private static ClerkAuthClient CreateClient()
-    {
-        var store = new InMemorySessionStore();
-        var prompt = new Mock<ICredentialPrompt>();
-        var options = Options.Create(new FinaryOptions());
-        var logger = NullLogger<ClerkAuthClient>.Instance;
-        return new ClerkAuthClient(store, prompt.Object, options, logger);
-    }
+	private static ClerkAuthClient CreateClient()
+	{
+		var store = new InMemorySessionStore();
+		var prompt = new Mock<ICredentialPrompt>();
+		var options = Options.Create(new FinaryOptions());
+		var logger = NullLogger<ClerkAuthClient>.Instance;
+		return new ClerkAuthClient(store, prompt.Object, options, logger);
+	}
 
-    [Fact]
-    public void SessionId_InitiallyEmpty()
-    {
-        using var client = CreateClient();
-        client.SessionId.Should().BeEmpty();
-    }
+	[Fact]
+	public void SessionId_InitiallyEmpty()
+	{
+		using var client = CreateClient();
+		client.SessionId.Should().BeEmpty();
+	}
 
-    [Fact]
-    public async Task RefreshTokenAsync_ThrowsWhenSessionIdEmpty()
-    {
-        using var client = CreateClient();
+	[Fact]
+	public async Task RefreshTokenAsync_ThrowsWhenSessionIdEmpty()
+	{
+		using var client = CreateClient();
 
-        var act = () => client.RefreshTokenAsync(CancellationToken.None);
+		var act = () => client.RefreshTokenAsync(CancellationToken.None);
 
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Cannot refresh token before login*");
-    }
+		await act.Should().ThrowAsync<InvalidOperationException>()
+			.WithMessage("*Cannot refresh token before login*");
+	}
 }

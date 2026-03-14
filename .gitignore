@@ -34,3 +34,5 @@ package-lock.json
 .squad/sessions/
 # Squad: SubSquad activation file (local to this machine)
 .squad-workstream
+
+data-hygiene.txt

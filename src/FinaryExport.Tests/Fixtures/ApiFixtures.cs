@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text.Json;
 
 namespace FinaryExport.Tests.Fixtures;
 
@@ -7,9 +6,9 @@ namespace FinaryExport.Tests.Fixtures;
 // Used as mock HTTP response bodies throughout the test suite.
 public static class ApiFixtures
 {
-    // --- Auth Fixtures ---
+	// --- Auth Fixtures ---
 
-    public static string ClerkEnvironmentResponse => """
+	public static string ClerkEnvironmentResponse => """
     {
         "auth_config": {
             "identification_strategies": ["email_address", "oauth_apple", "oauth_google"],
@@ -22,7 +21,7 @@ public static class ApiFixtures
     }
     """;
 
-    public static string ClerkClientResponse => """
+	public static string ClerkClientResponse => """
     {
         "object": "client",
         "id": "client_test_123",
@@ -33,7 +32,7 @@ public static class ApiFixtures
     }
     """;
 
-    public static string ClerkSignInResponse(string signInId = "sia_test_abc123") => $$"""
+	public static string ClerkSignInResponse(string signInId = "sia_test_abc123") => $$"""
     {
         "object": "sign_in",
         "id": "{{signInId}}",
@@ -46,7 +45,7 @@ public static class ApiFixtures
     }
     """;
 
-    public static string ClerkSignInInvalidPasswordResponse => """
+	public static string ClerkSignInInvalidPasswordResponse => """
     {
         "errors": [
             {
@@ -58,7 +57,7 @@ public static class ApiFixtures
     }
     """;
 
-    public static string ClerkSecondFactorResponse(string sessionId = "sess_test_xyz789") => $$"""
+	public static string ClerkSecondFactorResponse(string sessionId = "sess_test_xyz789") => $$"""
     {
         "object": "sign_in",
         "id": "sia_test_abc123",
@@ -71,7 +70,7 @@ public static class ApiFixtures
     }
     """;
 
-    public static string ClerkInvalidTotpResponse => """
+	public static string ClerkInvalidTotpResponse => """
     {
         "errors": [
             {
@@ -83,7 +82,7 @@ public static class ApiFixtures
     }
     """;
 
-    public static string ClerkSessionTouchResponse(string sessionId = "sess_test_xyz789") => $$"""
+	public static string ClerkSessionTouchResponse(string sessionId = "sess_test_xyz789") => $$"""
     {
         "object": "session",
         "id": "{{sessionId}}",
@@ -96,16 +95,16 @@ public static class ApiFixtures
     }
     """;
 
-    public static string ClerkTokenResponse(string jwt = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1c2VyX3Rlc3QiLCJzaWQiOiJzZXNzX3Rlc3RfeHl6Nzg5IiwiZXhwIjoxNzQxNzc2MDYwLCJpYXQiOjE3NDE3NzYwMDB9.fake_signature") => $$"""
+	public static string ClerkTokenResponse(string jwt = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1c2VyX3Rlc3QiLCJzaWQiOiJzZXNzX3Rlc3RfeHl6Nzg5IiwiZXhwIjoxNzQxNzc2MDYwLCJpYXQiOjE3NDE3NzYwMDB9.fake_signature") => $$"""
     {
         "object": "token",
         "jwt": "{{jwt}}"
     }
     """;
 
-    // --- Finary API Fixtures ---
+	// --- Finary API Fixtures ---
 
-    public static string OrganizationsResponse => """
+	public static string OrganizationsResponse => """
     {
         "result": [
             {
@@ -130,7 +129,7 @@ public static class ApiFixtures
     }
     """;
 
-    public static string PortfolioSummaryResponse => """
+	public static string PortfolioSummaryResponse => """
     {
         "result": {
             "created_at": "2024-01-15T10:30:00Z",
@@ -193,7 +192,7 @@ public static class ApiFixtures
     }
     """;
 
-    public static string CategoryAccountsResponse => """
+	public static string CategoryAccountsResponse => """
     {
         "result": [
             {
@@ -266,8 +265,8 @@ public static class ApiFixtures
     }
     """;
 
-    public static string CategoryTransactionsPageResponse(int count) =>
-        $$"""
+	public static string CategoryTransactionsPageResponse(int count) =>
+		$$"""
         {
             "result": [
                 {{string.Join(",\n", Enumerable.Range(1, count).Select(i => $$"""
@@ -309,7 +308,7 @@ public static class ApiFixtures
         }
         """;
 
-    public static string EmptyListResponse => """
+	public static string EmptyListResponse => """
     {
         "result": [],
         "message": null,
@@ -317,7 +316,7 @@ public static class ApiFixtures
     }
     """;
 
-    public static string TimeseriesResponse => """
+	public static string TimeseriesResponse => """
     {
         "result": {
             "label": "Checkings",
@@ -338,7 +337,7 @@ public static class ApiFixtures
     }
     """;
 
-    public static string DividendsResponse => """
+	public static string DividendsResponse => """
     {
         "result": {
             "annual_income": 3500.00,
@@ -356,7 +355,7 @@ public static class ApiFixtures
     }
     """;
 
-    public static string AllocationResponse => """
+	public static string AllocationResponse => """
     {
         "result": {
             "total": 150000.50,
@@ -372,7 +371,7 @@ public static class ApiFixtures
     }
     """;
 
-    public static string UserProfileResponse => """
+	public static string UserProfileResponse => """
     {
         "result": {
             "slug": "jean-dupont",
@@ -391,7 +390,7 @@ public static class ApiFixtures
     }
     """;
 
-    public static string HoldingsAccountsResponse => """
+	public static string HoldingsAccountsResponse => """
     {
         "result": [
             {
@@ -410,7 +409,7 @@ public static class ApiFixtures
     }
     """;
 
-    public static string ApiErrorResponse(string code, string message) => $$"""
+	public static string ApiErrorResponse(string code, string message) => $$"""
     {
         "result": null,
         "message": null,
@@ -421,22 +420,22 @@ public static class ApiFixtures
     }
     """;
 
-    // --- Cookie Fixtures ---
+	// --- Cookie Fixtures ---
 
-    public static Cookie[] SessionCookies =>
-    [
-        new("__client", "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.test_client_jwt", "/", "clerk.finary.com")
-        {
-            Expires = DateTime.UtcNow.AddDays(90)
-        },
-        new("__client_uat", "1741776000", "/", "clerk.finary.com")
-    ];
+	public static Cookie[] SessionCookies =>
+	[
+		new("__client", "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.test_client_jwt", "/", "clerk.finary.com")
+		{
+			Expires = DateTime.UtcNow.AddDays(90)
+		},
+		new("__client_uat", "1741776000", "/", "clerk.finary.com")
+	];
 
-    public static Cookie[] ExpiredSessionCookies =>
-    [
-        new("__client", "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.expired_client_jwt", "/", "clerk.finary.com")
-        {
-            Expires = DateTime.UtcNow.AddDays(-1)
-        }
-    ];
+	public static Cookie[] ExpiredSessionCookies =>
+	[
+		new("__client", "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.expired_client_jwt", "/", "clerk.finary.com")
+		{
+			Expires = DateTime.UtcNow.AddDays(-1)
+		}
+	];
 }

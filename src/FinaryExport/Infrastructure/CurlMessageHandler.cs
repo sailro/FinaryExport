@@ -7,6 +7,6 @@ namespace FinaryExport.Infrastructure;
 internal sealed class CurlMessageHandler(CurlClient curlClient) : HttpMessageHandler
 {
 	protected override Task<HttpResponseMessage> SendAsync(
-        HttpRequestMessage request, CancellationToken cancellationToken)
-        => curlClient.SendAsync(request, cancellationToken);
+		HttpRequestMessage request, CancellationToken cancellationToken)
+		=> curlClient.SendAsync(request, cancellationToken);
 }

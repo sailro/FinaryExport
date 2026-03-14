@@ -4,9 +4,9 @@
 // Implementation handles Clerk authentication and token refresh internally.
 public interface ITokenProvider
 {
-    // Returns a valid JWT. Blocks briefly if a refresh is in-flight.
-    Task<string> GetTokenAsync(CancellationToken ct = default);
+	// Returns a valid JWT. Blocks briefly if a refresh is in-flight.
+	Task<string> GetTokenAsync(CancellationToken ct = default);
 
-    // Session ID established during login.
-    string SessionId { get; }
+	// Session ID established during login.
+	string SessionId { get; }
 }

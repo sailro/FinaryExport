@@ -5,6 +5,6 @@ namespace FinaryExport.Export.Sheets;
 
 public interface ISheetWriter
 {
-    string SheetName { get; }
-    Task WriteAsync(IXLWorkbook workbook, IFinaryApiClient api, ExportContext context, CancellationToken ct);
+	string SheetName { get; }
+	Task WriteAsync(IXLWorkbook workbook, IFinaryApiClient api, ExportContext context, CancellationToken ct);
 }
