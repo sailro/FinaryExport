@@ -28,7 +28,7 @@ public sealed class SessionStoreTests
 
         // Assert
         loaded.Should().NotBeNull();
-        loaded!.SessionId.Should().Be(session.SessionId);
+        loaded.SessionId.Should().Be(session.SessionId);
         loaded.Cookies.Should().HaveCount(session.Cookies.Count);
         loaded.Cookies.Select(c => c.Name).Should().BeEquivalentTo(session.Cookies.Select(c => c.Name));
     }
@@ -122,13 +122,13 @@ public sealed class SessionStoreTests
 
         // Assert: last save wins
         loaded.Should().NotBeNull();
-        loaded!.Cookies.First().Value.Should().Be("second_value");
+        loaded.Cookies.First().Value.Should().Be("second_value");
         loaded.SessionId.Should().Be("sess_2");
         store.SaveCount.Should().Be(2);
     }
 
     [Fact]
-    public async Task SavedCookies_ContainRequiredClerkCookies()
+    public Task SavedCookies_ContainRequiredClerkCookies()
     {
         // Arrange: session cookies must include __client and __client_uat
         var cookies = ApiFixtures.SessionCookies;
@@ -136,10 +136,11 @@ public sealed class SessionStoreTests
         // Assert: fixture contains the required Clerk cookies
         cookies.Should().Contain(c => c.Name == "__client", "long-lived session credential");
         cookies.Should().Contain(c => c.Name == "__client_uat", "client updated-at timestamp");
+        return Task.CompletedTask;
     }
 
     [Fact]
-    public async Task SessionCookies_ClientCookie_HasLongExpiry()
+    public Task SessionCookies_ClientCookie_HasLongExpiry()
     {
         // Arrange: __client cookie should have ~90 day expiry per api-analysis.md
         var cookies = ApiFixtures.SessionCookies;
@@ -148,6 +149,7 @@ public sealed class SessionStoreTests
         // Assert
         clientCookie.Expires.Should().BeAfter(DateTime.UtcNow.AddDays(30),
             "Clerk __client cookie has ~90 day expiry");
+        return Task.CompletedTask;
     }
 
     [Fact]

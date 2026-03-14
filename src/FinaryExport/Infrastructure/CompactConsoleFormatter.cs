@@ -15,7 +15,7 @@ public sealed class CompactConsoleFormatter() : ConsoleFormatter(FormatterName)
         IExternalScopeProvider? scopeProvider,
         TextWriter textWriter)
     {
-        var message = logEntry.Formatter?.Invoke(logEntry.State, logEntry.Exception);
+        var message = logEntry.Formatter.Invoke(logEntry.State, logEntry.Exception);
         if (message is null)
             return;
 

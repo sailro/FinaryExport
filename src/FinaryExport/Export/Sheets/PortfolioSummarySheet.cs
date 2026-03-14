@@ -24,7 +24,7 @@ public sealed class PortfolioSummarySheet : ISheetWriter
         ws.Cell("B3").Value = "Value";
         ExcelStyles.ApplyHeaderStyle(ws.Row(3));
 
-        int row = 4;
+        var row = 4;
         if (portfolio?.Gross?.Total is not null)
         {
             var gross = portfolio.Gross.Total;
@@ -71,7 +71,7 @@ public sealed class PortfolioSummarySheet : ISheetWriter
         ExcelStyles.ApplyHeaderStyle(ws.Row(row));
         row++;
 
-        foreach (var category in Enum.GetValues<Models.AssetCategory>())
+        foreach (var category in Enum.GetValues<AssetCategory>())
         {
             try
             {

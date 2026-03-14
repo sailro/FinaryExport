@@ -31,7 +31,7 @@ public sealed class ClerkAuthClientTests
         // Act: auth should try warm start → single /tokens call → done
         var session = await store.LoadSessionAsync();
         session.Should().NotBeNull("warm start requires stored session data");
-        session!.SessionId.Should().NotBeNullOrEmpty();
+        session.SessionId.Should().NotBeNullOrEmpty();
 
         var response = await httpClient.PostAsync(
             $"/v1/client/sessions/{session.SessionId}/tokens?__clerk_api_version=2025-11-10",
@@ -70,7 +70,7 @@ public sealed class ClerkAuthClientTests
 
         // Warm start attempt
         var warmResponse = await httpClient.PostAsync(
-            $"/v1/client/sessions/{session!.SessionId}/tokens",
+            $"/v1/client/sessions/{session.SessionId}/tokens",
             new FormUrlEncodedContent([]));
         warmResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 

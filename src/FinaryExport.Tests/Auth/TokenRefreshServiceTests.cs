@@ -82,7 +82,7 @@ public sealed class TokenRefreshServiceTests
         using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://clerk.finary.com") };
 
         // Act: simulate 3 refresh cycles
-        for (int i = 0; i < 3; i++)
+        for (var i = 0; i < 3; i++)
         {
             var response = await httpClient.PostAsync(
                 "/v1/client/sessions/sess_test/tokens",

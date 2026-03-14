@@ -22,11 +22,10 @@ public sealed class ClerkAuthClient(
     private readonly FinaryOptions _options = options.Value;
 
     private volatile string _currentJwt = "";
-    private string _sessionId = "";
     private readonly List<Cookie> _activeCookies = [];
     private readonly SemaphoreSlim _authLock = new(1, 1);
 
-    public string SessionId => _sessionId;
+    public string SessionId { get; private set; } = "";
 
     public async Task<string> GetTokenAsync(CancellationToken ct = default)
     {
@@ -51,14 +50,15 @@ public sealed class ClerkAuthClient(
 
     public async Task LoginAsync(CancellationToken ct)
     {
-        if (_options.ClearSession)
+        switch (_options.ClearSession)
         {
-            logger.LogInformation("Clear session requested, forcing cold start");
-            await sessionStore.ClearSessionAsync(ct);
+            case true:
+                logger.LogInformation("Clear session requested, forcing cold start");
+                await sessionStore.ClearSessionAsync(ct);
+                break;
+            case false when await TryWarmStartAsync(ct):
+                return;
         }
-
-        if (!_options.ClearSession && await TryWarmStartAsync(ct))
-            return;
 
         await ColdStartAsync(ct);
     }
@@ -107,7 +107,7 @@ public sealed class ClerkAuthClient(
 
             var jwt = await PostTokensAsync(client, session.SessionId, ct);
 
-            _sessionId = session.SessionId;
+            SessionId = session.SessionId;
             CaptureCookies(client);
             Interlocked.Exchange(ref _currentJwt, jwt);
             logger.LogInformation("Resumed session: {SessionId}", TruncateId(session.SessionId));
@@ -202,7 +202,7 @@ public sealed class ClerkAuthClient(
         // If JWT wasn't in the 2FA response, fetch via /tokens
         jwt ??= await PostTokensAsync(client, sessionId, ct);
 
-        _sessionId = sessionId;
+        SessionId = sessionId;
         CaptureCookies(client);
         Interlocked.Exchange(ref _currentJwt, jwt);
         logger.LogInformation("New session: {SessionId}", TruncateId(sessionId));
@@ -213,7 +213,7 @@ public sealed class ClerkAuthClient(
     // Refreshes the JWT token. Called by TokenRefreshService every 50s.
     public async Task RefreshTokenAsync(CancellationToken ct)
     {
-        if (string.IsNullOrEmpty(_sessionId))
+        if (string.IsNullOrEmpty(SessionId))
             throw new InvalidOperationException("Cannot refresh token before login");
 
         using var client = CreateClerkClient();
@@ -221,7 +221,7 @@ public sealed class ClerkAuthClient(
 
         try
         {
-            var jwt = await PostTokensAsync(client, _sessionId, ct);
+            var jwt = await PostTokensAsync(client, SessionId, ct);
             CaptureCookies(client);
             Interlocked.Exchange(ref _currentJwt, jwt);
             logger.LogDebug("Token refreshed");
@@ -267,7 +267,7 @@ public sealed class ClerkAuthClient(
         try
         {
             await sessionStore.SaveSessionAsync(
-                new SessionData(_sessionId, _activeCookies.AsReadOnly()), ct);
+                new SessionData(SessionId, _activeCookies.AsReadOnly()), ct);
             logger.LogDebug("Persisted session ({Count} cookies)", _activeCookies.Count);
         }
         catch (Exception ex)

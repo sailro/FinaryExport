@@ -28,15 +28,15 @@ public sealed class TransactionsSheet(ILogger<TransactionsSheet> logger) : IShee
         ws.Cell("I1").Value = "Commission";
         ExcelStyles.ApplyHeaderStyle(ws.Row(1));
 
-        int row = 2;
-        int totalRecords = 0;
+        var row = 2;
+        var totalRecords = 0;
 
         foreach (var category in Enum.GetValues<AssetCategory>().Where(c => c.HasTransactions()))
         {
             try
             {
                 var transactions = await api.GetCategoryTransactionsAsync(category, ct: ct);
-                int categoryRecords = 0;
+                var categoryRecords = 0;
                 foreach (var tx in transactions)
                 {
                     ws.Cell($"A{row}").Value = category.ToDisplayName();

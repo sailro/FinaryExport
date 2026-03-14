@@ -48,7 +48,8 @@ public sealed class TokenRefreshService(ClerkAuthClient authClient, ILogger<Toke
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         logger.LogDebug("Token refresh service stopping...");
-        _cts?.Cancel();
+        if (_cts is not null)
+            await _cts.CancelAsync();
         _timer?.Dispose();
 
         if (_executingTask is not null)

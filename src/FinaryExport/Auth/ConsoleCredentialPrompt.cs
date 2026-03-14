@@ -48,11 +48,11 @@ public sealed class ConsoleCredentialPrompt : ICredentialPrompt
                 continue;
             }
 
-            if (key.KeyChar != '\0')
-            {
-                buffer.Append(key.KeyChar);
-                Console.Write('*');
-            }
+            if (key.KeyChar == '\0')
+                continue;
+
+            buffer.Append(key.KeyChar);
+            Console.Write('*');
         }
 
         return buffer.ToString();

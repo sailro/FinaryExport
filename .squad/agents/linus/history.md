@@ -262,3 +262,57 @@ Finary uses Clerk authentication with mandatory TOTP 2FA. Auth flow is 6-step pr
 
 **Lesson:** `git filter-repo` does literal string replacement — standalone substrings of already-replaced names need a separate pass. Order replacements longest-first or run multi-pass.
 
+### NuGet Upgrade & xUnit v3 Migration (2026-03-14)
+
+**Task:** Update all NuGet packages and migrate test framework from xUnit v2 to xUnit v3.
+
+**Package Updates (FinaryExport.csproj):**
+- ClosedXML: 0.104.2 → 0.105.0
+- Microsoft.Extensions.Hosting: 9.0.4 → 10.0.5
+- Microsoft.Extensions.Http: 9.0.4 → 10.0.5
+- System.CommandLine: 2.0.0-beta4 → 2.0.5 (stable)
+- System.Security.Cryptography.ProtectedData: 9.0.4 → 10.0.5
+
+**Package Updates (FinaryExport.Tests.csproj):**
+- coverlet.collector: 6.0.4 → 8.0.0
+- Removed: `xunit` (2.9.3), `xunit.runner.visualstudio` (3.1.4), `Microsoft.NET.Test.Sdk` (18.3.0)
+- Added: `xunit.v3` (3.2.2)
+
+**Breaking Changes Fixed:**
+
+1. **System.CommandLine 2.0.5 (stable) API overhaul:**
+   - `AddOption()` → `Options.Add()`
+   - `AddCommand()` → `Subcommands.Add()`
+   - `SetHandler(handler, opt1, opt2, opt3)` → `SetAction(async (ParseResult result) => { result.GetValue(opt) })`
+   - `rootCommand.InvokeAsync(args)` → `rootCommand.Parse(args).InvokeAsync()`
+   - Full rewrite of Program.cs CLI wiring.
+
+2. **xUnit v3 test runner:**
+   - Added `<OutputType>Exe</OutputType>` to test project (xUnit v3 is self-hosting).
+   - Created `global.json` with `"test": { "runner": "Microsoft.Testing.Platform" }` to enable `dotnet test` with MTP mode (required for xUnit v3 without VSTest adapter).
+   - `<Using Include="Xunit" />` — unchanged, xUnit v3 preserves the namespace.
+
+3. **xUnit1051 warnings (94 occurrences):** Suppressed via `<NoWarn>xUnit1051</NoWarn>`. Analyzer suggests `TestContext.Current.CancellationToken` instead of `CancellationToken.None` — style preference, not correctness issue. Bulk-replacing would risk breaking Moq setup expressions that match on `CancellationToken.None`.
+
+**Build:** ✅ Clean (0 warnings, 0 errors). **Tests:** ✅ 134 pass via `dotnet test`.
+
+**Key Lesson:** System.CommandLine jumped from beta to stable with a complete API redesign — `SetHandler` is gone, replaced by `SetAction` with `ParseResult` parameter. InvokeAsync moved from RootCommand to ParseResult. Always check the actual DLL exports (reflection) when web search gives contradictory migration advice. xUnit v3 with `dotnet test` requires MTP mode opt-in via global.json on .NET 10 SDK.
+
+### IDE Diagnostics Cleanup (2026-03-14)
+
+**Task:** Fix ~95 Visual Studio IDE diagnostics across the entire solution.
+
+**Categories fixed:**
+1. **Use 'var' (built-in types)** — Replaced `int`, `decimal` explicit declarations with `var` where type is obvious from the initializer. ~20 occurrences across FinaryApiClient, UnifiedFinaryApiClient, all sheet writers, WorkbookExporter, FinaryDelegatingHandler, and test files.
+2. **Remove trailing commas** — Cleaned up trailing commas in object/collection initializers across UnifiedFinaryApiClient, AssetCategory switch expression, UnifiedFinaryApiClientTests, and ApiFixtures. ~12 occurrences.
+3. **Invert 'if' to reduce nesting** — Converted nested conditionals to early-return/continue guards in FinaryApiClient (owner member loop), UnifiedFinaryApiClient (HoldingId check), ConsoleCredentialPrompt (null char check), and Program.cs (BuildOutputPath/BuildUnifiedPath).
+4. **Redundant qualifiers/code** — Removed `Models.` prefix in PortfolioSummarySheet, 5 redundant `FinaryExport.X.Y` qualifiers in Program.cs (added `using Microsoft.Extensions.Logging.Console`), added `internal` modifier to CurlMessageHandler, removed redundant Dispose override in CurlMessageHandler, removed redundant `?.` null conditional in CompactConsoleFormatter (Formatter is non-nullable in .NET 10).
+5. **Merge/simplify expressions** — Merged conditional ternary into null-propagating division in UnifiedFinaryApiClient, converted ClerkAuthClient `SessionId` backing field to auto-property with private setter, converted dual `if` to `switch` in LoginAsync, replaced `_cts?.Cancel()` with `await _cts.CancelAsync()` in TokenRefreshService.
+6. **Test fixes** — Removed conditional access on known non-null `dividends` in DividendsSheet, removed redundant collection expressions in `BeEquivalentTo` params (3 occurrences), removed redundant `!` nullable suppressions (6 occurrences), converted 2 async-without-await test methods to sync returning `Task.CompletedTask`, used `ReadExactly` instead of `Read` in WorkbookExporterTests, converted `new Cookie(...)` to target-typed `new(...)` in ApiFixtures, converted `if/throw/return` to `return throw-expression` in InMemorySessionStore.
+
+**Skipped:** AssetCategory.cs extension block conversion (C# 13/14 feature — not standard yet).
+
+**Build:** ✅ Clean (0 warnings, 0 errors). **Tests:** ✅ 134 pass.
+
+**Key Lesson:** Batch IDE diagnostic fixes are most efficient when grouped by category and applied file-by-file. Auto-property conversion (`SessionId`) requires updating all field references across the class. The `CancellationTokenSource.CancelAsync()` method (added in .NET 8) is the preferred async alternative to `Cancel()`. FluentAssertions + nullable analysis: `!` suppressions after `.Should().NotBeNull()` may be flagged as redundant by modern analyzers.
+

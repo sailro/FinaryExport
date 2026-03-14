@@ -40,7 +40,7 @@ public sealed class HoldingsSheet(ILogger<HoldingsSheet> logger) : ISheetWriter
             .ThenBy(r => r.Position.Security?.Name ?? "")
             .ToList();
 
-        int row = 2;
+        var row = 2;
         foreach (var (account, pos) in rows)
         {
             var sec = pos.Security;

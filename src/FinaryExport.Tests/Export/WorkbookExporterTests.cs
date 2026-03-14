@@ -45,7 +45,7 @@ public sealed class WorkbookExporterTests
         stream.Length.Should().BeGreaterThan(0);
         stream.Position = 0;
         var header = new byte[4];
-        stream.Read(header, 0, 4);
+        stream.ReadExactly(header, 0, 4);
         header[0].Should().Be(0x50); // 'P'
         header[1].Should().Be(0x4B); // 'K'
     }
@@ -141,7 +141,7 @@ public sealed class WorkbookExporterTests
         var ws = workbook.AddWorksheet("Checkings");
 
         var headers = new[] { "Name", "Institution", "Balance", "Currency", "Buying Value", "Unrealized P&L", "Annual Yield", "IBAN", "Opened At", "Last Sync" };
-        for (int i = 0; i < headers.Length; i++)
+        for (var i = 0; i < headers.Length; i++)
             ws.Cell(1, i + 1).Value = headers[i];
 
         // Assert
@@ -162,7 +162,7 @@ public sealed class WorkbookExporterTests
         var ws = workbook.AddWorksheet("Transactions");
 
         var headers = new[] { "Date", "Name", "Value", "Type", "Category", "Internal Transfer", "Include in Analysis" };
-        for (int i = 0; i < headers.Length; i++)
+        for (var i = 0; i < headers.Length; i++)
             ws.Cell(1, i + 1).Value = headers[i];
 
         ws.Cell(1, 1).GetString().Should().Be("Date");
@@ -178,7 +178,7 @@ public sealed class WorkbookExporterTests
         var ws = workbook.AddWorksheet("Summary");
 
         var headers = new[] { "Metric", "Value" };
-        for (int i = 0; i < headers.Length; i++)
+        for (var i = 0; i < headers.Length; i++)
             ws.Cell(1, i + 1).Value = headers[i];
 
         ws.Cell(1, 1).GetString().Should().Be("Metric");
@@ -236,7 +236,7 @@ public sealed class WorkbookExporterTests
 
         // Write headers only — no data rows
         var headers = new[] { "Name", "Balance", "State" };
-        for (int i = 0; i < headers.Length; i++)
+        for (var i = 0; i < headers.Length; i++)
             ws.Cell(1, i + 1).Value = headers[i];
 
         // Assert: sheet exists with headers, no data
@@ -273,7 +273,7 @@ public sealed class WorkbookExporterTests
 
             // Write zero data rows (simulating empty API response)
             var emptyList = new List<Account>();
-            int row = 2;
+            var row = 2;
             foreach (var account in emptyList)
             {
                 ws.Cell(row, 1).Value = account.Name;

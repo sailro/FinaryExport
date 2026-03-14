@@ -24,8 +24,9 @@ public sealed class InMemorySessionStore : ISessionStore
     public Task<SessionData?> LoadSessionAsync(CancellationToken ct = default)
     {
         LoadCount++;
-        if (ThrowOnLoad) throw new IOException("Simulated disk failure");
-        return Task.FromResult(_session);
+        return ThrowOnLoad
+            ? throw new IOException("Simulated disk failure")
+            : Task.FromResult(_session);
     }
 
     public Task ClearSessionAsync(CancellationToken ct = default)

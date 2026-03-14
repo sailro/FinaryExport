@@ -39,7 +39,7 @@ public sealed class AccountsSheet(ILogger<AccountsSheet> logger) : ISheetWriter
                 ws.Cell("J1").Value = "Last Sync";
                 ExcelStyles.ApplyHeaderStyle(ws.Row(1));
 
-                int row = 2;
+                var row = 2;
                 foreach (var account in accounts)
                 {
                     ws.Cell($"A{row}").Value = account.Name ?? "";

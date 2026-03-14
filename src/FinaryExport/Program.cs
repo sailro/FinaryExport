@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Options;
 
 var rootCommand = new RootCommand("FinaryExport — Export Finary wealth data to xlsx");
@@ -19,15 +20,18 @@ var clearSessionOption = new Option<bool>("--clear-session", "Force re-authentic
 
 // Export command (default)
 var exportCommand = new Command("export", "Export Finary data to xlsx");
-exportCommand.AddOption(outputOption);
-exportCommand.AddOption(periodOption);
-exportCommand.AddOption(clearSessionOption);
+exportCommand.Options.Add(outputOption);
+exportCommand.Options.Add(periodOption);
+exportCommand.Options.Add(clearSessionOption);
 
-exportCommand.SetHandler(RunExportAsync, outputOption, periodOption, clearSessionOption);
+exportCommand.SetAction(async result =>
+{
+    await RunExportAsync(result.GetValue(outputOption), result.GetValue(periodOption), result.GetValue(clearSessionOption));
+});
 
 // Clear session command
 var clearCommand = new Command("clear-session", "Clear saved authentication session");
-clearCommand.SetHandler(async () =>
+clearCommand.SetAction(async _ =>
 {
     var builder = Host.CreateApplicationBuilder([]);
     ConfigureHost(builder, null, null, true);
@@ -40,22 +44,25 @@ clearCommand.SetHandler(async () =>
 
 // Version command
 var versionCommand = new Command("version", "Show version information");
-versionCommand.SetHandler(() =>
+versionCommand.SetAction(_ =>
 {
     Console.WriteLine("FinaryExport v1.0.0");
 });
 
-rootCommand.AddCommand(exportCommand);
-rootCommand.AddCommand(clearCommand);
-rootCommand.AddCommand(versionCommand);
+rootCommand.Subcommands.Add(exportCommand);
+rootCommand.Subcommands.Add(clearCommand);
+rootCommand.Subcommands.Add(versionCommand);
 
 // Default behavior: run export when no subcommand is specified
-rootCommand.AddOption(outputOption);
-rootCommand.AddOption(periodOption);
-rootCommand.AddOption(clearSessionOption);
-rootCommand.SetHandler(RunExportAsync, outputOption, periodOption, clearSessionOption);
+rootCommand.Options.Add(outputOption);
+rootCommand.Options.Add(periodOption);
+rootCommand.Options.Add(clearSessionOption);
+rootCommand.SetAction(async result =>
+{
+    await RunExportAsync(result.GetValue(outputOption), result.GetValue(periodOption), result.GetValue(clearSessionOption));
+});
 
-return await rootCommand.InvokeAsync(args);
+return await rootCommand.Parse(args).InvokeAsync();
 
 // ── Implementation ──
 
@@ -89,8 +96,8 @@ static async Task RunExportAsync(string? output, string? period, bool clearSessi
 
         // 3. Export one xlsx per profile (ownership-adjusted values)
         var exporter = host.Services.GetRequiredService<IWorkbookExporter>();
-        var profileContext = new FinaryExport.Export.ExportContext { UseDisplayValues = true };
-        for (int i = 0; i < profiles.Count; i++)
+        var profileContext = new ExportContext { UseDisplayValues = true };
+        for (var i = 0; i < profiles.Count; i++)
         {
             var profile = profiles[i];
             Console.WriteLine($"Exporting profile {i + 1}/{profiles.Count}: {profile.ProfileName}...");
@@ -106,8 +113,8 @@ static async Task RunExportAsync(string? output, string? period, bool clearSessi
         if (profiles.Count > 0)
         {
             Console.WriteLine($"Exporting unified ({profiles.Count} profiles)...");
-            var unifiedApi = new FinaryExport.Api.UnifiedFinaryApiClient(apiClient, profiles, logger);
-            var unifiedContext = new FinaryExport.Export.ExportContext { UseDisplayValues = false };
+            var unifiedApi = new UnifiedFinaryApiClient(apiClient, profiles, logger);
+            var unifiedContext = new ExportContext { UseDisplayValues = false };
             var unifiedPath = BuildUnifiedPath(options.OutputPath);
             await exporter.ExportAsync(unifiedPath, unifiedApi, unifiedContext);
             Console.WriteLine($"  → {unifiedPath}");
@@ -142,10 +149,10 @@ static void ConfigureHost(HostApplicationBuilder builder, string? output, string
 
     // Use compact single-line log format
     builder.Logging.AddConsoleFormatter<
-        FinaryExport.Infrastructure.CompactConsoleFormatter,
-        Microsoft.Extensions.Logging.Console.ConsoleFormatterOptions>();
+        CompactConsoleFormatter,
+        ConsoleFormatterOptions>();
     builder.Logging.AddConsole(options =>
-        options.FormatterName = FinaryExport.Infrastructure.CompactConsoleFormatter.FormatterName);
+        options.FormatterName = CompactConsoleFormatter.FormatterName);
 
     builder.Services.Configure<FinaryOptions>(builder.Configuration.GetSection(FinaryOptions.SectionName));
 
@@ -169,14 +176,11 @@ static string BuildOutputPath(string baseOutput, string profileName)
     var dir = Path.GetDirectoryName(baseOutput);
     var ext = Path.GetExtension(baseOutput);
 
-    if (string.Equals(ext, ".xlsx", StringComparison.OrdinalIgnoreCase))
-    {
-        var stem = Path.GetFileNameWithoutExtension(baseOutput);
-        return Path.Combine(dir ?? ".", $"{stem}-{safeName}.xlsx");
-    }
+    if (!string.Equals(ext, ".xlsx", StringComparison.OrdinalIgnoreCase))
+        return Path.Combine(dir ?? ".", $"finary-export-{safeName}.xlsx");
 
-    // baseOutput is a directory or the default — generate the filename
-    return Path.Combine(dir ?? ".", $"finary-export-{safeName}.xlsx");
+    var stem = Path.GetFileNameWithoutExtension(baseOutput);
+    return Path.Combine(dir ?? ".", $"{stem}-{safeName}.xlsx");
 }
 
 // Builds the output path for the unified (raw values) export file.
@@ -185,13 +189,11 @@ static string BuildUnifiedPath(string baseOutput)
     var dir = Path.GetDirectoryName(baseOutput);
     var ext = Path.GetExtension(baseOutput);
 
-    if (string.Equals(ext, ".xlsx", StringComparison.OrdinalIgnoreCase))
-    {
-        var stem = Path.GetFileNameWithoutExtension(baseOutput);
-        return Path.Combine(dir ?? ".", $"{stem}-unified.xlsx");
-    }
+    if (!string.Equals(ext, ".xlsx", StringComparison.OrdinalIgnoreCase))
+        return Path.Combine(dir ?? ".", "finary-export-unified.xlsx");
 
-    return Path.Combine(dir ?? ".", "finary-export-unified.xlsx");
+    var stem = Path.GetFileNameWithoutExtension(baseOutput);
+    return Path.Combine(dir ?? ".", $"{stem}-unified.xlsx");
 }
 
 static string SanitizeFileName(string name)

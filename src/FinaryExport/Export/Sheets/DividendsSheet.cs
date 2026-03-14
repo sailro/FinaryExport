@@ -41,10 +41,10 @@ public sealed class DividendsSheet(ILogger<DividendsSheet> logger) : ISheetWrite
         ws.Cell("B7").Style.NumberFormat.Format = ExcelStyles.PercentFormat;
 
         // Past dividends detail
-        int pastCount = 0;
+        var pastCount = 0;
         if (dividends?.PastDividends is { Count: > 0 })
         {
-            int row = 10;
+            var row = 10;
             ws.Cell($"A{row}").Value = "Past Dividends";
             ws.Cell($"A{row}").Style.Font.Bold = true;
             row++;
@@ -71,10 +71,10 @@ public sealed class DividendsSheet(ILogger<DividendsSheet> logger) : ISheetWrite
         }
 
         // Upcoming dividends detail
-        int upcomingCount = 0;
+        var upcomingCount = 0;
         if (dividends?.UpcomingDividends is { Count: > 0 })
         {
-            int row = (dividends?.PastDividends?.Count ?? 0) + 14;
+            var row = (dividends.PastDividends?.Count ?? 0) + 14;
             ws.Cell($"A{row}").Value = "Upcoming Dividends";
             ws.Cell($"A{row}").Style.Font.Bold = true;
             row++;
@@ -87,7 +87,7 @@ public sealed class DividendsSheet(ILogger<DividendsSheet> logger) : ISheetWrite
             ExcelStyles.ApplyHeaderStyle(ws.Row(row));
             row++;
 
-            foreach (var div in dividends!.UpcomingDividends)
+            foreach (var div in dividends.UpcomingDividends)
             {
                 ws.Cell($"A{row}").Value = div.Asset?.Name ?? div.Holding?.Name ?? div.AssetType ?? "";
                 ws.Cell($"B{row}").Value = div.Amount ?? 0m;

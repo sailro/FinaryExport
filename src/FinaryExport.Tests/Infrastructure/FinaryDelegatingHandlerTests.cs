@@ -105,7 +105,7 @@ public sealed class FinaryDelegatingHandlerTests
 
         var inner = new MockHttpMessageHandler();
         // Initial request + 3 retries = 4 responses needed
-        for (int i = 0; i < 4; i++)
+        for (var i = 0; i < 4; i++)
         {
             var resp = new HttpResponseMessage((HttpStatusCode)429);
             resp.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.FromMilliseconds(1));

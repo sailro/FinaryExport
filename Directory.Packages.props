@@ -1,0 +1,19 @@
+<Project>
+
+  <ItemGroup>
+    <!-- Main project -->
+    <PackageVersion Include="ClosedXML" Version="0.105.0" />
+    <PackageVersion Include="Loxifi.CurlImpersonate" Version="1.1.0" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.5" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.5" />
+    <PackageVersion Include="System.CommandLine" Version="2.0.5" />
+    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.5" />
+
+    <!-- Test project -->
+    <PackageVersion Include="coverlet.collector" Version="8.0.0" />
+    <PackageVersion Include="FluentAssertions" Version="8.8.0" />
+    <PackageVersion Include="Moq" Version="4.20.72" />
+    <PackageVersion Include="xunit.v3" Version="3.2.2" />
+  </ItemGroup>
+
+</Project>

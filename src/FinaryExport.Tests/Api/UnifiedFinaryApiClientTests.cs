@@ -71,7 +71,7 @@ public sealed class UnifiedFinaryApiClientTests
                             OwnershipRepartition =
                             [
                                 new() { Share = 0.87m, Membership = new() { Id = "membership-owner" } },
-                                new() { Share = 0.13m, Membership = new() { Id = "membership-Marie" } },
+                                new() { Share = 0.13m, Membership = new() { Id = "membership-Marie" } }
                             ]
                         }
                     }),
@@ -84,7 +84,7 @@ public sealed class UnifiedFinaryApiClientTests
                             OwnershipRepartition =
                             [
                                 new() { Share = 0.87m, Membership = new() { Id = "membership-owner" } },
-                                new() { Share = 0.13m, Membership = new() { Id = "membership-Marie" } },
+                                new() { Share = 0.13m, Membership = new() { Id = "membership-Marie" } }
                             ]
                         }
                     }),
@@ -128,7 +128,7 @@ public sealed class UnifiedFinaryApiClientTests
         var result = await client.GetCategoryAccountsAsync(AssetCategory.Savings);
 
         result.Should().HaveCount(3, "all exclusive accounts should be included");
-        result.Select(a => a.Id).Should().BeEquivalentTo(["acc-jean-1", "acc-Marie-1", "acc-Claire-1"]);
+        result.Select(a => a.Id).Should().BeEquivalentTo("acc-jean-1", "acc-Marie-1", "acc-Claire-1");
         result.Sum(a => a.Balance ?? 0m).Should().Be(18000m, "10k + 5k + 3k");
     }
 
@@ -159,7 +159,7 @@ public sealed class UnifiedFinaryApiClientTests
         var result = await client.GetCategoryAccountsAsync(AssetCategory.Checkings);
 
         result.Should().HaveCount(3, "shared-1 once + 2 exclusives");
-        result.Select(a => a.Id).Should().BeEquivalentTo(["shared-1", "owner-only", "Marie-only"]);
+        result.Select(a => a.Id).Should().BeEquivalentTo("shared-1", "owner-only", "Marie-only");
     }
 
     [Fact]
@@ -347,7 +347,7 @@ public sealed class UnifiedFinaryApiClientTests
         var portfolio = await client.GetPortfolioAsync();
 
         portfolio.Should().NotBeNull();
-        portfolio!.Gross!.Total!.Amount.Should().Be(180000m, "100k + 30k + 50k");
+        portfolio.Gross!.Total!.Amount.Should().Be(180000m, "100k + 30k + 50k");
         portfolio.Gross.Total.DisplayAmount.Should().Be(180000m);
     }
 
@@ -490,7 +490,7 @@ public sealed class UnifiedFinaryApiClientTests
         var result = await client.GetPortfolioDividendsAsync();
 
         result.Should().NotBeNull();
-        result!.PastDividends.Should().HaveCount(3, "3 unique dividend entries");
+        result.PastDividends.Should().HaveCount(3, "3 unique dividend entries");
         result.PastIncome.Should().Be(800m, "500 + 200 + 100 from merged entries");
         result.AnnualIncome.Should().Be(2000m, "owner's AnnualIncome preserved");
         result.Yield.Should().Be(3.5m, "owner's Yield preserved");
@@ -535,7 +535,7 @@ public sealed class UnifiedFinaryApiClientTests
         var result = await client.GetHoldingsAccountsAsync();
 
         result.Should().HaveCount(2);
-        result.Select(a => a.Id).Should().BeEquivalentTo(["ha-1", "ha-2"]);
+        result.Select(a => a.Id).Should().BeEquivalentTo("ha-1", "ha-2");
     }
 
     // ================================================================
@@ -625,7 +625,7 @@ public sealed class UnifiedFinaryApiClientTests
                         Amount = gross,
                         DisplayAmount = gross,
                         Evolution = evolution,
-                        EvolutionPercent = evolutionPct,
+                        EvolutionPercent = evolutionPct
                     }
                 },
                 Net = new PortfolioValues
@@ -633,7 +633,7 @@ public sealed class UnifiedFinaryApiClientTests
                     Total = new PortfolioTotalValues
                     {
                         Amount = net,
-                        DisplayAmount = net,
+                        DisplayAmount = net
                     }
                 }
             });

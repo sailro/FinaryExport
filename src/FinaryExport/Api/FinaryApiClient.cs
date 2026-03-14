@@ -42,14 +42,14 @@ public sealed partial class FinaryApiClient(IHttpClientFactory httpClientFactory
         {
             var ownerMember = org.Members?.FirstOrDefault(
                 m => m.User?.IsOrganizationOwner == true);
-            if (ownerMember is not null)
-            {
-                _orgId = org.Id ?? throw new InvalidOperationException("Organization has no ID");
-                _membershipId = ownerMember.Id ?? throw new InvalidOperationException("Membership has no ID");
-                logger.LogInformation("Organization: {OrgName} (membership: {MembershipId})",
-                    org.Name, _membershipId);
-                return (_orgId, _membershipId);
-            }
+            if (ownerMember is null)
+                continue;
+
+            _orgId = org.Id ?? throw new InvalidOperationException("Organization has no ID");
+            _membershipId = ownerMember.Id ?? throw new InvalidOperationException("Membership has no ID");
+            logger.LogInformation("Organization: {OrgName} (membership: {MembershipId})",
+                org.Name, _membershipId);
+            return (_orgId, _membershipId);
         }
 
         throw new InvalidOperationException("No organization found where user is owner");
@@ -116,7 +116,7 @@ public sealed partial class FinaryApiClient(IHttpClientFactory httpClientFactory
     private async Task<List<T>> GetPaginatedListAsync<T>(string basePath, int pageSize, CancellationToken ct)
     {
         var all = new List<T>();
-        int page = 1;
+        var page = 1;
 
         while (true)
         {

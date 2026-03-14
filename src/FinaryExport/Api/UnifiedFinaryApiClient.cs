@@ -80,15 +80,14 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
                 if (myShare is > 0m and < 1m)
                 {
                     var fullBalance = account.DisplayBalance / myShare;
-                    var fullBuyingValue = account.DisplayBuyingValue.HasValue
-                        ? account.DisplayBuyingValue / myShare : null;
+                    var fullBuyingValue = account.DisplayBuyingValue / myShare;
 
                     merged[account.Id] = account with
                     {
                         Balance = fullBalance,
                         DisplayBalance = fullBalance,
                         BuyingValue = fullBuyingValue,
-                        DisplayBuyingValue = fullBuyingValue,
+                        DisplayBuyingValue = fullBuyingValue
                     };
                 }
                 else
@@ -100,7 +99,7 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
                         Balance = account.DisplayBalance ?? account.Balance,
                         DisplayBalance = account.DisplayBalance ?? account.Balance,
                         BuyingValue = account.DisplayBuyingValue ?? account.BuyingValue,
-                        DisplayBuyingValue = account.DisplayBuyingValue ?? account.BuyingValue,
+                        DisplayBuyingValue = account.DisplayBuyingValue ?? account.BuyingValue
                     };
                 }
             }
@@ -125,8 +124,8 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
         var ownerPortfolio = await _inner.GetPortfolioAsync(period, ct);
 
         // Compute unified totals from merged accounts across all memberships
-        decimal grossTotal = 0m;
-        decimal creditsTotal = 0m;
+        var grossTotal = 0m;
+        var creditsTotal = 0m;
 
         foreach (var category in Enum.GetValues<AssetCategory>())
         {
@@ -154,10 +153,10 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
                     Evolution = ownerPortfolio?.Gross?.Total?.Evolution,
                     EvolutionPercent = ownerPortfolio?.Gross?.Total?.EvolutionPercent,
                     PeriodEvolution = ownerPortfolio?.Gross?.Total?.PeriodEvolution,
-                    PeriodEvolutionPercent = ownerPortfolio?.Gross?.Total?.PeriodEvolutionPercent,
+                    PeriodEvolutionPercent = ownerPortfolio?.Gross?.Total?.PeriodEvolutionPercent
                 },
                 Assets = ownerPortfolio?.Gross?.Assets,
-                Liabilities = ownerPortfolio?.Gross?.Liabilities,
+                Liabilities = ownerPortfolio?.Gross?.Liabilities
             },
             Net = new PortfolioValues
             {
@@ -168,12 +167,12 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
                     Evolution = ownerPortfolio?.Net?.Total?.Evolution,
                     EvolutionPercent = ownerPortfolio?.Net?.Total?.EvolutionPercent,
                     PeriodEvolution = ownerPortfolio?.Net?.Total?.PeriodEvolution,
-                    PeriodEvolutionPercent = ownerPortfolio?.Net?.Total?.PeriodEvolutionPercent,
+                    PeriodEvolutionPercent = ownerPortfolio?.Net?.Total?.PeriodEvolutionPercent
                 },
                 Assets = ownerPortfolio?.Net?.Assets,
-                Liabilities = ownerPortfolio?.Net?.Liabilities,
+                Liabilities = ownerPortfolio?.Net?.Liabilities
             },
-            Finary = ownerPortfolio?.Finary,
+            Finary = ownerPortfolio?.Finary
         };
     }
 
@@ -241,7 +240,7 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
         {
             PastDividends = mergedPast,
             UpcomingDividends = mergedUpcoming,
-            PastIncome = mergedPast.Sum(d => d.Amount ?? 0m),
+            PastIncome = mergedPast.Sum(d => d.Amount ?? 0m)
         };
     }
 
@@ -258,13 +257,13 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
 
             foreach (var entry in entries)
             {
-                if (entry.HoldingId is not null)
+                if (entry.HoldingId is null)
+                    continue;
+
+                if (!merged.TryGetValue(entry.HoldingId.Value, out var existing) ||
+                    (entry.CurrentValue ?? 0m) > (existing.CurrentValue ?? 0m))
                 {
-                    if (!merged.TryGetValue(entry.HoldingId.Value, out var existing) ||
-                        (entry.CurrentValue ?? 0m) > (existing.CurrentValue ?? 0m))
-                    {
-                        merged[entry.HoldingId.Value] = entry;
-                    }
+                    merged[entry.HoldingId.Value] = entry;
                 }
             }
         }

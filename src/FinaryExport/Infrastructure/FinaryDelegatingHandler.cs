@@ -46,7 +46,7 @@ public sealed class FinaryDelegatingHandler(
         }
 
         // Handle 429: backoff and retry up to 3 times
-        for (int attempt = 0; attempt < 3 && response.StatusCode == (System.Net.HttpStatusCode)429; attempt++)
+        for (var attempt = 0; attempt < 3 && response.StatusCode == (System.Net.HttpStatusCode)429; attempt++)
         {
             var retryAfter = response.Headers.RetryAfter?.Delta ?? TimeSpan.FromSeconds(5);
             await Task.Delay(retryAfter, cancellationToken);

@@ -425,18 +425,18 @@ public static class ApiFixtures
 
     public static Cookie[] SessionCookies =>
     [
-        new Cookie("__client", "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.test_client_jwt", "/", "clerk.finary.com")
+        new("__client", "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.test_client_jwt", "/", "clerk.finary.com")
         {
             Expires = DateTime.UtcNow.AddDays(90)
         },
-        new Cookie("__client_uat", "1741776000", "/", "clerk.finary.com"),
+        new("__client_uat", "1741776000", "/", "clerk.finary.com")
     ];
 
     public static Cookie[] ExpiredSessionCookies =>
     [
-        new Cookie("__client", "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.expired_client_jwt", "/", "clerk.finary.com")
+        new("__client", "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.expired_client_jwt", "/", "clerk.finary.com")
         {
             Expires = DateTime.UtcNow.AddDays(-1)
-        },
+        }
     ];
 }

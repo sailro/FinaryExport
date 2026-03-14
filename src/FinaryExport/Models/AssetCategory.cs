@@ -39,6 +39,6 @@ public static class AssetCategoryExtensions
         AssetCategory.Savings => true,
         AssetCategory.Investments => true,
         AssetCategory.Credits => true,
-        _ => false,
+        _ => false
     };
 }

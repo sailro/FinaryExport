@@ -12,8 +12,8 @@ public sealed class WorkbookExporter(IEnumerable<ISheetWriter> writers, ILogger<
     {
         var ctx = context ?? new ExportContext();
         using var workbook = new XLWorkbook();
-        int successCount = 0;
-        int errorCount = 0;
+        var successCount = 0;
+        var errorCount = 0;
 
         foreach (var writer in writers)
         {
