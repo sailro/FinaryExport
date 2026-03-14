@@ -91,3 +91,50 @@ All C# code uses regular comments (`//`) instead of XML doc comments (`///`). Th
 - Implementation code (Linus): Use `//` for all comments, no `///` triple-slash docs
 - Test code (Basher): Use `//` for all comments
 - IntelliSense: Project will not auto-generate XML doc files, but comments still visible in IDE on hover
+
+## Decision: Interactive Auth (No Stored Credentials)
+
+**Author:** Linus (Backend Dev)  
+**Date:** 2026-03-12  
+**Scope:** Auth module
+
+### Summary
+
+Auth flow changed from config-based credentials to interactive console prompts. On cold start, the user is prompted for Email, Password, and TOTP Code. Credentials are never persisted — only the `__client` session cookie is stored (via EncryptedFileSessionStore).
+
+### What Changed
+
+- `ICredentialPrompt` interface added — decouples credential acquisition from `ClerkAuthClient`
+- `ConsoleCredentialPrompt` — interactive implementation with masked password input
+- `TotpSecret`, `Email`, `Password` removed from `FinaryOptions` and config
+- `Otp.NET` dependency removed (was only used for TOTP generation from stored secret)
+
+### Impact
+
+- `appsettings.json` only contains `OutputPath`, `Period`, `Locale`
+- No credentials in config, user secrets, or env vars
+- Tests unaffected (they mock at HTTP layer, don't use FinaryOptions credentials)
+
+## Decision: Auth Flow Simplified + Cloudflare Mitigation
+
+**Author:** Linus (Backend Dev)  
+**Date:** 2026-03-12  
+**Scope:** Auth Module
+
+### Summary
+
+Rewrote ClerkAuthClient to fix Cloudflare 429 rejections. Three key changes:
+
+1. **Simplified flow:** Cold start is now 3 steps (sign_in → 2FA → extract session), not 6. Skips /v1/environment and /v1/client entirely.
+2. **Self-owned HttpClient:** ClerkAuthClient creates its own HttpClient with CookieContainer (no longer uses IHttpClientFactory "Clerk" named client). This gives full cookie jar control for both Cloudflare and Clerk cookies.
+3. **Browser fingerprinting:** All Clerk requests now include Chrome-like User-Agent, sec-ch-ua, sec-fetch-*, Accept-Language headers.
+
+### Impact
+
+- **ISessionStore interface changed:** Now saves/loads `SessionData` (SessionId + cookies) instead of raw `IReadOnlyCollection<Cookie>`. Existing session files will trigger a cold start (self-healing).
+- **ClerkDelegatingHandler:** No longer registered in DI (its logic moved into ClerkAuthClient). File still exists but is unused.
+- **CookieContainer singleton removed from DI** — no longer shared.
+
+### Rationale
+
+Based on Livingston's protocol analysis and FinarySharp's working reference implementation. The 429 was Cloudflare bot detection, not Clerk rate limiting.
