@@ -96,7 +96,7 @@ static async Task RunExportAsync(string? output, string? period, bool clearSessi
 
         // 3. Export one xlsx per profile (ownership-adjusted values)
         var exporter = host.Services.GetRequiredService<IWorkbookExporter>();
-        var profileContext = new ExportContext { UseDisplayValues = true };
+        var profileContext = new ExportContext { UseDisplayValues = true, Period = options.Period };
         for (var i = 0; i < profiles.Count; i++)
         {
             var profile = profiles[i];
@@ -114,7 +114,7 @@ static async Task RunExportAsync(string? output, string? period, bool clearSessi
         {
             Console.WriteLine($"Exporting unified ({profiles.Count} profiles)...");
             var unifiedApi = new UnifiedFinaryApiClient(apiClient, profiles, logger);
-            var unifiedContext = new ExportContext { UseDisplayValues = false };
+            var unifiedContext = new ExportContext { UseDisplayValues = false, Period = options.Period };
             var unifiedPath = BuildUnifiedPath(options.OutputPath);
             await exporter.ExportAsync(unifiedPath, unifiedApi, unifiedContext);
             Console.WriteLine($"  → {unifiedPath}");

@@ -25,12 +25,12 @@ public interface IFinaryApiClient
     Task<FeeSummary?> GetPortfolioFeesAsync(CancellationToken ct = default);
 
     // Category-generic endpoints
-    Task<List<Account>> GetCategoryAccountsAsync(Models.AssetCategory category, CancellationToken ct = default);
+    Task<List<Account>> GetCategoryAccountsAsync(Models.AssetCategory category, string period = "1d", CancellationToken ct = default);
     Task<List<TimeseriesData>> GetCategoryTimeseriesAsync(Models.AssetCategory category, string period = "all", CancellationToken ct = default);
     Task<List<Transaction>> GetCategoryTransactionsAsync(Models.AssetCategory category, int pageSize = 200, CancellationToken ct = default);
 
     // Asset list (individual holdings/positions across all accounts)
-    Task<List<AssetListEntry>> GetAssetListAsync(CancellationToken ct = default);
+    Task<List<AssetListEntry>> GetAssetListAsync(string period = "1d", CancellationToken ct = default);
 
     // Cross-cutting
     Task<List<HoldingsAccount>> GetHoldingsAccountsAsync(CancellationToken ct = default);

@@ -16,7 +16,7 @@ public sealed class HoldingsSheetTests
     public async Task WriteAsync_WritesHeaderRow()
     {
         var mock = new Mock<IFinaryApiClient>();
-        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Investments, It.IsAny<CancellationToken>()))
+        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Investments, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
 
         using var wb = new XLWorkbook();
@@ -72,7 +72,7 @@ public sealed class HoldingsSheetTests
         };
 
         var mock = new Mock<IFinaryApiClient>();
-        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Investments, It.IsAny<CancellationToken>()))
+        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Investments, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(accounts);
 
         using var wb = new XLWorkbook();
@@ -107,7 +107,7 @@ public sealed class HoldingsSheetTests
         };
 
         var mock = new Mock<IFinaryApiClient>();
-        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Investments, It.IsAny<CancellationToken>()))
+        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Investments, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(accounts);
 
         using var wb = new XLWorkbook();
@@ -142,7 +142,7 @@ public sealed class HoldingsSheetTests
         };
 
         var mock = new Mock<IFinaryApiClient>();
-        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Investments, It.IsAny<CancellationToken>()))
+        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Investments, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(accounts);
 
         using var wb = new XLWorkbook();

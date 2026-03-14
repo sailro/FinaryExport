@@ -8,6 +8,9 @@
 - **Created:** 2026-03-12
 
 ## Learnings
+### Period Parameter Threading (2026-03-14)
+
+Threaded the CLI `--period` flag through `GetCategoryAccountsAsync` and `GetAssetListAsync`. Both previously hardcoded `period=1d`. Added `string period = "1d"` parameter (backward-compatible default) to the interface, `FinaryApiClient`, and `UnifiedFinaryApiClient`. The unified client's account cache key was updated to `(AssetCategory, string)` to correctly vary by period. Added `Period` property to `ExportContext` (default `"1d"`), set from `FinaryOptions.Period` in `Program.cs`. Sheet writers (`AccountsSheet`, `PortfolioSummarySheet`, `HoldingsSheet`) now pass `context.Period` to the API. Flow: CLI `--period` → `FinaryOptions.Period` → `ExportContext.Period` → sheet writers → API client.
 
 ### Auth Module Requirements (2026-03-12)
 Finary uses Clerk authentication with mandatory TOTP 2FA. Auth flow is 6-step process:

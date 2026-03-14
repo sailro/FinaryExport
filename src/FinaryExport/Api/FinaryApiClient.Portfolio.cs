@@ -42,9 +42,9 @@ public sealed partial class FinaryApiClient
             $"{BasePath}/portfolio/fees?new_format=true", ct);
     }
 
-    public async Task<List<AssetListEntry>> GetAssetListAsync(CancellationToken ct = default)
+    public async Task<List<AssetListEntry>> GetAssetListAsync(string period = "1d", CancellationToken ct = default)
     {
         return await GetAsync<List<AssetListEntry>>(
-            $"{BasePath}/asset_list?limit=100&period=1d", ct) ?? [];
+            $"{BasePath}/asset_list?limit=100&period={period}", ct) ?? [];
     }
 }

@@ -14,7 +14,7 @@ public sealed class HoldingsSheet(ILogger<HoldingsSheet> logger) : ISheetWriter
 
     public async Task WriteAsync(IXLWorkbook workbook, IFinaryApiClient api, ExportContext context, CancellationToken ct)
     {
-        var accounts = await api.GetCategoryAccountsAsync(AssetCategory.Investments, ct);
+        var accounts = await api.GetCategoryAccountsAsync(AssetCategory.Investments, context.Period, ct);
 
         var ws = workbook.Worksheets.Add(SheetName);
 

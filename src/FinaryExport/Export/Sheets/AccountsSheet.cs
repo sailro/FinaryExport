@@ -18,7 +18,7 @@ public sealed class AccountsSheet(ILogger<AccountsSheet> logger) : ISheetWriter
         {
             try
             {
-                var accounts = await api.GetCategoryAccountsAsync(category, ct);
+                var accounts = await api.GetCategoryAccountsAsync(category, context.Period, ct);
                 if (accounts.Count == 0) continue;
 
                 var sheetName = category.ToDisplayName();

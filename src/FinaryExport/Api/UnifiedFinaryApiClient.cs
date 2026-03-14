@@ -20,7 +20,7 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
     // Caches merged accounts per category to avoid redundant API calls.
     // The PortfolioSummarySheet and AccountsSheet both call GetCategoryAccountsAsync
     // for the same categories — the cache prevents fetching twice.
-    private readonly Dictionary<AssetCategory, List<Account>> _accountCache = [];
+    private readonly Dictionary<(AssetCategory, string), List<Account>> _accountCache = [];
 
     public UnifiedFinaryApiClient(IFinaryApiClient inner, List<FinaryProfile> profiles, ILogger logger)
     {
@@ -53,9 +53,10 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
     // ── Aggregated: accounts merged by ID across all memberships ──
 
     public async Task<List<Account>> GetCategoryAccountsAsync(
-        AssetCategory category, CancellationToken ct = default)
+        AssetCategory category, string period = "1d", CancellationToken ct = default)
     {
-        if (_accountCache.TryGetValue(category, out var cached))
+        var cacheKey = (category, period);
+        if (_accountCache.TryGetValue(cacheKey, out var cached))
             return cached;
 
         var merged = new Dictionary<string, Account>();
@@ -63,7 +64,7 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
         foreach (var profile in _profiles)
         {
             _inner.SetOrganizationContext(profile.OrgId, profile.MembershipId);
-            var accounts = await _inner.GetCategoryAccountsAsync(category, ct);
+            var accounts = await _inner.GetCategoryAccountsAsync(category, period, ct);
 
             foreach (var account in accounts)
             {
@@ -106,7 +107,7 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
         }
 
         var result = merged.Values.ToList();
-        _accountCache[category] = result;
+        _accountCache[cacheKey] = result;
 
         _logger.LogDebug("Unified {Category}: {Count} unique accounts from {Profiles} profiles",
             category, result.Count, _profiles.Count);
@@ -129,7 +130,7 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
 
         foreach (var category in Enum.GetValues<AssetCategory>())
         {
-            var accounts = await GetCategoryAccountsAsync(category, ct);
+            var accounts = await GetCategoryAccountsAsync(category, period, ct);
             var categorySum = accounts.Sum(a => a.Balance ?? 0m);
 
             if (category == AssetCategory.Credits)
@@ -246,14 +247,14 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
 
     // ── Aggregated: asset list merged by holding ID ──
 
-    public async Task<List<AssetListEntry>> GetAssetListAsync(CancellationToken ct = default)
+    public async Task<List<AssetListEntry>> GetAssetListAsync(string period = "1d", CancellationToken ct = default)
     {
         var merged = new Dictionary<long, AssetListEntry>();
 
         foreach (var profile in _profiles)
         {
             _inner.SetOrganizationContext(profile.OrgId, profile.MembershipId);
-            var entries = await _inner.GetAssetListAsync(ct);
+            var entries = await _inner.GetAssetListAsync(period, ct);
 
             foreach (var entry in entries)
             {

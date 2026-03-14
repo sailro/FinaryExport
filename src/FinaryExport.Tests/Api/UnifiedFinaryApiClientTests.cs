@@ -57,7 +57,7 @@ public sealed class UnifiedFinaryApiClientTests
 
         var (mock, client) = CreateContextTrackingClient(AllProfiles, out var ctx);
 
-        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.RealEstates, It.IsAny<CancellationToken>()))
+        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.RealEstates, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(() =>
             {
                 return ctx.CurrentMembershipId switch
@@ -104,7 +104,7 @@ public sealed class UnifiedFinaryApiClientTests
     {
         var (mock, client) = CreateContextTrackingClient(AllProfiles, out var ctx);
 
-        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Savings, It.IsAny<CancellationToken>()))
+        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Savings, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(() =>
             {
                 return ctx.CurrentMembershipId switch
@@ -137,7 +137,7 @@ public sealed class UnifiedFinaryApiClientTests
     {
         var (mock, client) = CreateContextTrackingClient(AllProfiles, out var ctx);
 
-        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Checkings, It.IsAny<CancellationToken>()))
+        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Checkings, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(() =>
             {
                 return ctx.CurrentMembershipId switch
@@ -167,7 +167,7 @@ public sealed class UnifiedFinaryApiClientTests
     {
         var (mock, client) = CreateContextTrackingClient([Owner], out _);
 
-        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Checkings, It.IsAny<CancellationToken>()))
+        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Checkings, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(
 			[
 				new() { Id = "valid-1", Name = "Valid", Balance = 1000m },
@@ -185,7 +185,7 @@ public sealed class UnifiedFinaryApiClientTests
     {
         var (mock, client) = CreateContextTrackingClient(AllProfiles, out var ctx);
 
-        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Savings, It.IsAny<CancellationToken>()))
+        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Savings, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(() =>
             {
                 return ctx.CurrentMembershipId switch
@@ -213,7 +213,7 @@ public sealed class UnifiedFinaryApiClientTests
     {
         var (mock, client) = CreateContextTrackingClient(AllProfiles, out _);
 
-        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Savings, It.IsAny<CancellationToken>()))
+        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Savings, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([new() { Id = "a1", Balance = 100m }]);
 
         var result1 = await client.GetCategoryAccountsAsync(AssetCategory.Savings);
@@ -223,7 +223,7 @@ public sealed class UnifiedFinaryApiClientTests
 
         // Inner client called once per profile (3), not twice (6)
         mock.Verify(
-            x => x.GetCategoryAccountsAsync(AssetCategory.Savings, It.IsAny<CancellationToken>()),
+            x => x.GetCategoryAccountsAsync(AssetCategory.Savings, It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Exactly(3));
     }
 
@@ -238,7 +238,7 @@ public sealed class UnifiedFinaryApiClientTests
         // Production: fullBalance = DisplayBalance / share = 6000 / 0.60 = 10000
         var (mock, client) = CreateContextTrackingClient([Owner], out var ctx);
 
-        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.RealEstates, It.IsAny<CancellationToken>()))
+        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.RealEstates, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(() => Task.FromResult(new List<Account>
             {
                 new()
@@ -265,7 +265,7 @@ public sealed class UnifiedFinaryApiClientTests
         // No OwnershipRepartition → exclusive asset → Balance = DisplayBalance ?? Balance
         var (mock, client) = CreateContextTrackingClient([Owner], out var ctx);
 
-        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Savings, It.IsAny<CancellationToken>()))
+        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Savings, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(() => Task.FromResult(new List<Account>
             {
                 new()
@@ -288,7 +288,7 @@ public sealed class UnifiedFinaryApiClientTests
         // Share == 1.0 → not partial → uses DisplayBalance directly (else branch)
         var (mock, client) = CreateContextTrackingClient([Owner], out var ctx);
 
-        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Savings, It.IsAny<CancellationToken>()))
+        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Savings, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(() => Task.FromResult(new List<Account>
             {
                 new()
@@ -320,7 +320,7 @@ public sealed class UnifiedFinaryApiClientTests
         SetupOwnerPortfolio(mock, 150000m, 140000m, evolution: 5000m);
 
         // Investments: 100k from owner, 30k exclusive from Marie
-        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Investments, It.IsAny<CancellationToken>()))
+        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Investments, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(() => ctx.CurrentMembershipId switch
             {
                 "membership-owner" => Task.FromResult(new List<Account> { new() { Id = "inv-1", Balance = 100000m } }),
@@ -329,7 +329,7 @@ public sealed class UnifiedFinaryApiClientTests
             });
 
         // Savings: 50k from owner
-        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Savings, It.IsAny<CancellationToken>()))
+        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Savings, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(() => ctx.CurrentMembershipId switch
             {
                 "membership-owner" => Task.FromResult(new List<Account> { new() { Id = "sav-1", Balance = 50000m } }),
@@ -340,7 +340,7 @@ public sealed class UnifiedFinaryApiClientTests
         foreach (var cat in Enum.GetValues<AssetCategory>())
         {
             if (cat is AssetCategory.Investments or AssetCategory.Savings) continue;
-            mock.Setup(x => x.GetCategoryAccountsAsync(cat, It.IsAny<CancellationToken>()))
+            mock.Setup(x => x.GetCategoryAccountsAsync(cat, It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync([]);
         }
 
@@ -357,14 +357,14 @@ public sealed class UnifiedFinaryApiClientTests
         var (mock, client) = CreateContextTrackingClient(AllProfiles, out var ctx);
         SetupOwnerPortfolio(mock, 100000m, 80000m);
 
-        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Investments, It.IsAny<CancellationToken>()))
+        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Investments, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(() => ctx.CurrentMembershipId switch
             {
                 "membership-owner" => Task.FromResult(new List<Account> { new() { Id = "inv-1", Balance = 100000m } }),
                 _ => Task.FromResult(new List<Account>())
             });
 
-        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Credits, It.IsAny<CancellationToken>()))
+        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Credits, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(() => ctx.CurrentMembershipId switch
             {
                 "membership-owner" => Task.FromResult(new List<Account> { new() { Id = "credit-1", Balance = 20000m } }),
@@ -374,7 +374,7 @@ public sealed class UnifiedFinaryApiClientTests
         foreach (var cat in Enum.GetValues<AssetCategory>())
         {
             if (cat is AssetCategory.Investments or AssetCategory.Credits) continue;
-            mock.Setup(x => x.GetCategoryAccountsAsync(cat, It.IsAny<CancellationToken>()))
+            mock.Setup(x => x.GetCategoryAccountsAsync(cat, It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync([]);
         }
 
@@ -392,7 +392,7 @@ public sealed class UnifiedFinaryApiClientTests
 
         foreach (var cat in Enum.GetValues<AssetCategory>())
         {
-            mock.Setup(x => x.GetCategoryAccountsAsync(cat, It.IsAny<CancellationToken>()))
+            mock.Setup(x => x.GetCategoryAccountsAsync(cat, It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync([]);
         }
 
@@ -576,7 +576,7 @@ public sealed class UnifiedFinaryApiClientTests
     {
         var (mock, client) = CreateContextTrackingClient([Owner], out _);
 
-        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Savings, It.IsAny<CancellationToken>()))
+        mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Savings, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([new() { Id = "a1", Name = "Test", Balance = 1000m }]);
 
         var result = await client.GetCategoryAccountsAsync(AssetCategory.Savings);

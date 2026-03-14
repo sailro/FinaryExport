@@ -6,6 +6,10 @@ public sealed record ExportContext
 {
     public bool UseDisplayValues { get; init; } = true;
 
+    // Period for account/asset queries (e.g. "1d", "1w", "1m", "ytd", "1y", "all").
+    // Defaults to "1d" to match prior hardcoded behavior.
+    public string Period { get; init; } = "1d";
+
     // Picks the display or raw value depending on context.
     // Falls back to the other when the preferred one is null.
     public decimal ResolveValue(decimal? displayValue, decimal? rawValue)

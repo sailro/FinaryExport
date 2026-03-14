@@ -7,10 +7,10 @@ namespace FinaryExport.Api;
 public sealed partial class FinaryApiClient
 {
     public async Task<List<Account>> GetCategoryAccountsAsync(
-        AssetCategory category, CancellationToken ct = default)
+        AssetCategory category, string period = "1d", CancellationToken ct = default)
     {
         return await GetAsync<List<Account>>(
-            $"{BasePath}/portfolio/{category.ToUrlSegment()}/accounts?period=1d", ct) ?? [];
+            $"{BasePath}/portfolio/{category.ToUrlSegment()}/accounts?period={period}", ct) ?? [];
     }
 
     public async Task<List<TimeseriesData>> GetCategoryTimeseriesAsync(
