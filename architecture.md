@@ -65,7 +65,7 @@ src/FinaryExport/
 |   +-- TokenRefreshService.cs          # IHostedService: refreshes JWT every 50s
 |
 +-- Configuration/
-|   +-- FinaryOptions.cs                # OutputPath, Period, Locale, SessionStorePath, ClearSession
+|   +-- FinaryOptions.cs                # OutputPath, Period, SessionStorePath, ClearSession
 |
 +-- Export/
 |   +-- ExportContext.cs                # Controls display vs raw value selection
@@ -89,15 +89,14 @@ src/FinaryExport/
 |
 +-- Models/
     +-- ApiEnvelope.cs                  # Generic { result: T } wrapper
-    +-- AssetCategory.cs                # Enum: checking, savings, investments, etc.
+    +-- AssetCategory.cs                # Enum + extension methods (ToUrlSegment, ToDisplayName, HasTransactions)
     +-- Accounts/
     |   +-- Account.cs                  # Account with balances, ownership, nested positions
     |   +-- HoldingsAccount.cs
     |   +-- OwnershipEntry.cs           # Share + membership for ownership scaling
     |   +-- SecurityInfo.cs
     |   +-- SecurityPosition.cs
-    +-- Auth/                           # Clerk auth response models
-    +-- Portfolio/                       # PortfolioSummary, TimeseriesData, DividendSummary
+    +-- Portfolio/                       # PortfolioSummary, TimeseriesData, DividendSummary (incl. DividendAssetInfo), AllocationData, AssetListEntry, FeeSummary
     +-- Transactions/                   # Transaction model
     +-- User/
         +-- FinaryProfile.cs            # OrgId + MembershipId + ProfileName
@@ -112,14 +111,18 @@ src/FinaryExport/
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| ClosedXML | 0.104.2 | Excel workbook generation |
+| ClosedXML | 0.105.0 | Excel workbook generation |
 | Loxifi.CurlImpersonate | 1.1.0 | Chrome 136 TLS fingerprint (Cloudflare bypass) |
-| Microsoft.Extensions.Hosting | 9.0.4 | Generic host, DI, logging, hosted services |
-| Microsoft.Extensions.Http | 9.0.4 | HttpClientFactory for Finary API |
-| System.CommandLine | 2.0.0-beta4 | CLI argument parsing |
-| System.Security.Cryptography.ProtectedData | 9.0.4 | DPAPI encryption for session store |
+| Microsoft.Extensions.Hosting | 10.0.5 | Generic host, DI, logging, hosted services |
+| Microsoft.Extensions.Http | 10.0.5 | HttpClientFactory for Finary API |
+| System.CommandLine | 2.0.5 | CLI argument parsing (SetAction API) |
+| System.Security.Cryptography.ProtectedData | 10.0.5 | DPAPI encryption for session store |
 
 **Target framework:** `net10.0`
+
+**Build tooling:** `Directory.Build.props` sets shared properties (target framework, nullable, implicit usings). `Directory.Packages.props` centralizes all NuGet package versions via Central Package Management.
+
+**Test framework:** xUnit v3 (3.2.2) with FluentAssertions 8.8.0 and Moq 4.20.72.
 
 ---
 
@@ -130,9 +133,9 @@ src/FinaryExport/
 ### `export` (default)
 
 Options:
-- `--output` / `-o` — Output file path (default: `finary-export.xlsx`)
-- `--period` / `-p` — Time period: `1w`, `1m`, `ytd`, `1y`, `all` (default: `all`)
-- `--locale` — Locale for formatting (default: `fr-FR`)
+- `--output` — Output file path (default: `finary-export.xlsx`)
+- `--period` — Time period: `1d`, `1w`, `1m`, `3m`, `6m`, `1y`, `all` (default: `all`)
+- `--clear-session` — Force re-authentication (discard saved session)
 
 Flow:
 1. Build `IHost` with `ConfigureHost` (binds `FinaryOptions`, registers all services)
@@ -290,6 +293,7 @@ The unified export uses `ExportContext { UseDisplayValues = false }` — raw val
 public sealed record ExportContext
 {
     public bool UseDisplayValues { get; init; } = true;
+    public string Period { get; init; } = "all";
 
     public decimal ResolveValue(decimal? displayValue, decimal? rawValue)
         => (UseDisplayValues ? displayValue ?? rawValue : rawValue ?? displayValue) ?? 0m;
@@ -312,7 +316,7 @@ Iterates all registered `ISheetWriter` implementations, calls `WriteAsync` on ea
 |-------|-------|-------------|
 | Portfolio Summary | `PortfolioSummarySheet` | `GetPortfolioAsync`, `GetPortfolioTimeseriesAsync` |
 | Accounts | `AccountsSheet` | `GetCategoryAccountsAsync` (all categories) |
-| Transactions | `TransactionsSheet` | `GetCategoryTransactionsAsync` (all categories) |
+| Transactions | `TransactionsSheet` | `GetCategoryTransactionsAsync` (filtered by `HasTransactions()`: checkings, savings, investments, credits) |
 | Dividends | `DividendsSheet` | `GetPortfolioDividendsAsync` |
 | Holdings | `HoldingsSheet` | `GetHoldingsAccountsAsync`, `GetAssetListAsync` |
 
@@ -347,7 +351,6 @@ public sealed class FinaryOptions
 {
     public string OutputPath { get; set; } = "finary-export.xlsx";
     public string Period { get; set; } = "all";
-    public string Locale { get; set; } = "fr-FR";
     public string? SessionStorePath { get; set; }
     public bool ClearSession { get; set; }
 }
@@ -361,8 +364,7 @@ public sealed class FinaryOptions
 {
   "Finary": {
     "OutputPath": "finary-export.xlsx",
-    "Period": "all",
-    "Locale": "fr-FR"
+    "Period": "all"
   },
   "Logging": {
     "LogLevel": {
@@ -373,7 +375,7 @@ public sealed class FinaryOptions
 }
 ```
 
-CLI options (`--output`, `--period`, `--locale`) override `appsettings.json` values.
+CLI options (`--output`, `--period`, `--clear-session`) override `appsettings.json` values.
 
 ---
 
@@ -422,12 +424,16 @@ Custom `ConsoleFormatter` for single-line log output. Registered when configurin
 | `HoldingsAccount` | `Models.Accounts` | Simplified account from holdings endpoint |
 | `PortfolioSummary` | `Models.Portfolio` | Overall portfolio value and allocation data |
 | `TimeseriesData` | `Models.Portfolio` | Historical value data points |
-| `DividendSummary` | `Models.Portfolio` | Dividend income aggregation |
+| `DividendSummary` | `Models.Portfolio` | Dividend income aggregation (contains `DividendEntry`, `NextYearEntry`, `DividendAssetInfo`) |
+| `DividendAssetInfo` | `Models.Portfolio` | Asset metadata nested in dividend entries (id, type, name, logo) |
+| `AllocationData` | `Models.Portfolio` | Geographical/sector allocation breakdown |
+| `AssetListEntry` | `Models.Portfolio` | Top assets by value |
+| `FeeSummary` | `Models.Portfolio` | Fee analysis data |
 | `Transaction` | `Models.Transactions` | Buy/sell/income/expense record |
 | `FinaryProfile` | `Models.User` | OrgId + MembershipId + ProfileName |
 | `UserProfile` | `Models.User` | User identity and membership list |
 | `ApiEnvelope<T>` | `Models` | Generic `{ result: T }` response wrapper |
-| `AssetCategory` | `Models` | Enum of asset categories (checking, savings, etc.) |
+| `AssetCategory` | `Models` | Enum of asset categories + extension methods (`HasTransactions`, `ToDisplayName`, `ToUrlSegment`) |
 
 ### API Response Pattern
 

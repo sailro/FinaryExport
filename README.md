@@ -18,10 +18,12 @@ dotnet build
 
 ## Usage
 
+All commands are run from the repository root. The `--project` flag tells `dotnet run` which project to execute.
+
 ### Export data
 
 ```bash
-dotnet run -- export
+dotnet run --project src/FinaryExport -- export
 ```
 
 Exports all profiles to the default output directory. Each profile gets its own file (e.g., `finary-export-jean-dupont.xlsx`) and a unified workbook (`finary-export-unified.xlsx`) is generated combining all profiles.
@@ -29,29 +31,33 @@ Exports all profiles to the default output directory. Each profile gets its own 
 ### Export with custom output path
 
 ```bash
-dotnet run -- export --output myfile.xlsx
+dotnet run --project src/FinaryExport -- export --output myfile.xlsx
 ```
 
 ### Export with time period filter
 
 ```bash
-dotnet run -- export --period 1y
+dotnet run --project src/FinaryExport -- export --period 1y
 ```
 
-Supported periods: `1w`, `1m`, `ytd`, `1y`, `all` (default: `all`).
+Supported periods: `1d`, `1w`, `1m`, `3m`, `6m`, `1y`, `all` (default: `all`).
 
-### Clear cached session
+### Force re-authentication
 
 ```bash
-dotnet run -- clear-session
+dotnet run --project src/FinaryExport -- export --clear-session
 ```
 
-Clears the locally cached authentication session, forcing a fresh login on the next run.
+Discards the cached session and forces a fresh login for this run. Can also be used as a standalone command:
+
+```bash
+dotnet run --project src/FinaryExport -- clear-session
+```
 
 ### Show version
 
 ```bash
-dotnet run -- version
+dotnet run --project src/FinaryExport -- version
 ```
 
 ## Authentication

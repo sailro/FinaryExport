@@ -731,7 +731,7 @@ Some endpoints (cashflow, transactions) accept explicit dates:
 2. **Data Export Endpoints:** ✅ All implemented
    - `GET .../holdings_accounts` — used by `HoldingsSheet`
    - `GET .../portfolio/{category}/accounts` — used by `AccountsSheet`
-   - `GET .../portfolio/{category}/transactions` — used by `TransactionsSheet`
+   - `GET .../portfolio/{category}/transactions` — used by `TransactionsSheet` (filtered to checkings, savings, investments, credits via `AssetCategory.HasTransactions()`)
    - `GET .../portfolio` — used by `PortfolioSummarySheet`
    - `GET .../portfolio/timeseries` — used by `PortfolioSummarySheet`
    - `GET .../portfolio/dividends` — used by `DividendsSheet`
