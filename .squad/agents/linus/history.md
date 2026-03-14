@@ -221,3 +221,23 @@ Finary uses Clerk authentication with mandatory TOTP 2FA. Auth flow is 6-step pr
 - `src/FinaryExport/Export/Sheets/TransactionsSheet.cs` — filtered category loop
 
 **Build:** ✅ Clean (0 warnings, 0 errors). **Tests:** ✅ 134 pass (no test changes needed).
+
+### Cross-Platform Analysis: Windows + Linux Feasibility (2026-03-14)
+
+**From Rusty (Lead):** Scoped cross-platform support against Windows-only blockers. Two components prevent Linux/macOS: DPAPI encryption and CurlImpersonate TLS bypass.
+
+**Key Findings:**
+1. **DPAPI (EncryptedFileSessionStore)** — Windows-only via `System.Security.Cryptography.ProtectedData`. Clean replacement: `Microsoft.AspNetCore.DataProtection` (cross-platform, encryption at rest, console-app compatible). No breaking changes to `ISessionStore` interface. Effort: **Small** (~0.5 day).
+2. **CurlImpersonate** — NuGet ships `linux-x64` `.so` binary (untested); macOS has no binaries. Linux verification: **Small** (~0.5 day test on Ubuntu). macOS: **Hard blocker** — Loxifi upstream has no support, build system is Linux-centric.
+
+**Recommendation:** Windows + Linux x64 feasible (~1 day). macOS deferred.
+
+**Impact on Linus:** If approved to proceed:
+1. Implement `DataProtectionSessionStore` (new class, same `ISessionStore` interface)
+2. Update `ServiceCollectionExtensions` DI registration for platform detection
+3. Remove `System.Security.Cryptography.ProtectedData` package
+4. Remove Windows-only `CA1416` suppression
+5. Test on Ubuntu 22.04+ if available
+
+**Full analysis:** `.squad/decisions/inbox/rusty-cross-platform.md`
+

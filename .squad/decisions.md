@@ -2,6 +2,28 @@
 
 ## Active Decisions
 
+### 2026-03-14: Cross-Platform Support Scoping (Pending Decision)
+
+**Author:** Rusty (Lead)  
+**Scope:** Infrastructure / Platform  
+**Status:** Scoping / Awaiting approval
+
+Analyzed feasibility of cross-platform support (Windows, Linux, macOS) against two blockers: DPAPI encryption and CurlImpersonate TLS bypass.
+
+**Key Findings:**
+1. **DPAPI (Session Encryption)** — Windows-only via `System.Security.Cryptography.ProtectedData`. Solution: swap to `Microsoft.AspNetCore.DataProtection` (cross-platform, encryption at rest). Effort: **Small** (~0.5 day).
+2. **CurlImpersonate (TLS Bypass)** — NuGet package ships Linux x64 binary (untested); macOS has no binaries and no build path. Effort for Linux: **Small** (~0.5 day verification). macOS: **Large/blocked** due to build complexity.
+
+**Recommendation:**
+- **Windows + Linux x64:** Proceed. ~1 day total work. Clear architecture, existing `ISessionStore` abstraction supports swap.
+- **macOS:** Defer. Loxifi upstream gaps + build system complexity. Revisit if demand materializes or Loxifi adds macOS support.
+
+**Decision Needed:** Approve Linux support work? (Would update D13 to remove "Windows-only by design" constraint.)
+
+**Details:** See `.squad/decisions/inbox/rusty-cross-platform.md` (full analysis with alternatives, risks, implementation sketches).
+
+---
+
 ### 2026-03-14: Transaction-Capable Categories via HasTransactions()
 
 **Author:** Linus (Backend)  
