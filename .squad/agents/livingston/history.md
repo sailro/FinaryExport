@@ -52,3 +52,14 @@
   - All three fix tiers from the 429 investigation became unnecessary — CurlImpersonate subsumes them.
 - **Verification:** Both cold start and warm start auth flows succeed without any 403/429. API data export works end-to-end.
 - **Lesson:** When fighting Cloudflare bot management on a reverse-engineered API, TLS fingerprint impersonation is the correct layer to operate at. HTTP headers are table stakes but insufficient.
+
+### 2026-03-14 — Deep Security Audit Complete
+
+- **Scope:** Full repo (23 commits, all branches) + working tree + gitleaks automated scan.
+- **Result: CLEAN.** No real credentials, tokens, session IDs, or Finary account identifiers found in tracked files or git history.
+- **traffic data** exists on disk but was NEVER committed. Protected via `*.har`. Contains real auth headers — should be deleted when no longer needed for analysis.
+- **Data hygiene verified (D-pii):** Test fixtures use only synthetic test IDs and synthetic data. Real data never committed.
+- **Fixed two .gitignore gaps:** Added `log.txt` (runtime logs may contain truncated session IDs and org UUIDs) and `.env` (defensive — credentials could be set via env vars per architecture decision D9).
+- **Fixed stale gitleaks fingerprint:** Added `56c24dd...` commit fingerprint to `.gitleaksignore` for the synthetic test JWT in ApiFixtures.cs. Gitleaks now reports 0 leaks.
+- **No git history scrubbing needed.** No CRITICAL/HIGH findings anywhere in history.
+- **Lesson:** Proactive .gitignore coverage for log files and env files is cheap insurance. Even when no `.env` or `log.txt` exists today, a single careless `git add .` in the future could expose them.

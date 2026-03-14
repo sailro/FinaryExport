@@ -151,13 +151,12 @@ Transparent decorator over `IFinaryApiClient` that aggregates across all members
 **Author:** Team consensus  
 **Scope:** Entire codebase + squad files
 
-All real personally identifiable information scrubbed from source, tests, and squad files.
+Synthetic data used in tests and squad files. Real data never stored in source or tracked files.
 
 **Key Points:**
-1. Synthetic names: Jean Dupont, Marie Dupont, Claire Dupont.
-2. Synthetic IBANs, account names, institution names in test fixtures.
-3. `.squad/` files use "the user" — never real names.
-4. Export `.xlsx` files (containing real data) are gitignored.
+1. Test fixtures use synthetic names and identifiers only.
+2. `.squad/` files refer to "the user" — never real names.
+3. Export `.xlsx` files (containing real data) are gitignored.
 
 ---
 

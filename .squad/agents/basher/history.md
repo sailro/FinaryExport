@@ -169,7 +169,7 @@ The contract stubs matched Linus's implementation remarkably well. Interface sig
 - `Api/UnifiedFinaryApiClientTests.cs` — tests decorator behavior: multi-membership aggregation, account deduplication by ID, shared asset scaling (`display_balance / share`), cache behavior
 
 **Updated test files:**
-- `Fixtures/ApiFixtures.cs` — expanded with SecurityPosition, SecurityInfo, HoldingsAccount, OwnershipEntry, FinaryProfile fixtures. All use synthetic PII (Jean/Marie/Claire Dupont).
+- `Fixtures/ApiFixtures.cs` — expanded with SecurityPosition, SecurityInfo, HoldingsAccount, OwnershipEntry, FinaryProfile fixtures. All use synthetic test data.
 - Existing auth and API tests adapted for CurlImpersonate-based `ClerkAuthClient` constructor changes.
 
 **Test suite totals:**

@@ -32,7 +32,7 @@
 - **2026-03-12 — Rate limiter tuned (D-ratelimit).** Increased from 2 req/s to 5 req/s (200ms interval). API analysis showed browser makes ~2.5 req/s with no rate limit headers observed from Finary's API.
 - **2026-03-12 — CompactConsoleFormatter (D-logging).** Custom `ConsoleFormatter` producing single-line logs: `"dbug: ClerkAuthClient: Token refreshed"`. Strips namespace prefixes, maps log levels to 4-char codes.
 - **2026-03-12 — Dead code removal.** Removed `ClerkDelegatingHandler`, `FinaryJsonContext` (STJ source gen), unused Auth models (`ClerkTokenResponse`, `SignInResponse`, `SessionResponse`), `AccountDetail`, Otp.NET dependency. Streamlined to essential code only.
-- **2026-03-12 — Security audit (D-pii).** All real PII scrubbed from source and tests. Synthetic names used: Jean Dupont, Marie Dupont, Claire Dupont. Test fixtures use synthetic IBANs, account names, institution names.
+- **2026-03-12 — Data hygiene (D-pii).** Synthetic data used in test fixtures only. Real data never stored in source or tracked files.
 - **2026-03-12 — Code style (D-noxml).** No XML doc comments (`///`). Regular comments (`//`) only, used sparingly for non-obvious logic.
 - **Current tech stack:** .NET 10, C# 14, ClosedXML 0.104.2, Loxifi.CurlImpersonate 1.1.0, Microsoft.Extensions.Hosting 9.0.4, System.CommandLine 2.0.0-beta4, System.Security.Cryptography.ProtectedData 9.0.4.
 - **Current sheets (5):** Summary, Accounts (one per category), Transactions, Dividends, Holdings.

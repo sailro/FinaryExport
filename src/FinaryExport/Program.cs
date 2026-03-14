@@ -14,9 +14,9 @@ using Microsoft.Extensions.Options;
 
 var rootCommand = new RootCommand("FinaryExport — Export Finary wealth data to xlsx");
 
-var outputOption = new Option<string?>("--output", "Output xlsx file path");
-var periodOption = new Option<string?>("--period", "Time period (1d, 1w, 1m, 3m, 6m, 1y, all)");
-var clearSessionOption = new Option<bool>("--clear-session", "Force re-authentication (discard saved session)");
+var outputOption = new Option<string?>("--output") { Description = "Output xlsx file path" };
+var periodOption = new Option<string?>("--period") { Description = "Time period (1d, 1w, 1m, 3m, 6m, 1y, all)" };
+var clearSessionOption = new Option<bool>("--clear-session") { Description = "Force re-authentication (discard saved session)" };
 
 // Export command (default)
 var exportCommand = new Command("export", "Export Finary data to xlsx");

@@ -29,7 +29,7 @@ Scribe maintains squad state: agent histories, decisions registry, session logs.
 13. **Linus** built UnifiedFinaryApiClient (D-unified): decorator pattern, cross-membership aggregation, shared asset scaling
 14. **Linus** removed dead code: ClerkDelegatingHandler, FinaryJsonContext, unused Auth models, AccountDetail, Otp.NET
 15. **Basher** expanded tests to 134 (4 new test files: ExportContext, Holdings, DelegatingHandler, UnifiedApiClient)
-16. PII scrub applied (D-pii): all real names replaced with Jean/Marie/Claire Dupont
+16. Data hygiene applied (D-pii): synthetic data used in tests only
 
 **Decisions recorded this session:** D-curl, D-multiprofile, D-unified, D-pii, D-ratelimit, D-logging, D-noxml
 
@@ -38,5 +38,5 @@ Scribe maintains squad state: agent histories, decisions registry, session logs.
 ## Learnings
 
 - Squad state must be updated during the session, not retroactively. When agents spawn directly (bypassing orchestration), the Scribe has no opportunity to log in real time — resulting in this bulk catchup.
-- PII rule: never use real names in `.squad/` files. Use "the user" or synthetic names (Jean/Marie/Claire Dupont).
+- Data hygiene best practice: synthetic data only in `.squad/` files and tests. Never include real identifiers or PII.
 - The decisions registry (`decisions.md`) is the single source of truth for architectural choices. Agent histories should reference decisions by ID, not duplicate rationale.

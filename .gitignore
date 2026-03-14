@@ -19,6 +19,12 @@ appsettings.*.json
 # Generated exports (contain real financial data)
 *.xlsx
 
+# Log output (may contain session IDs and org UUIDs)
+log.txt
+
+# Environment variables (credentials)
+.env
+
 # Snapshot / dev artifacts
 finary-snapshot.txt
 package.json
