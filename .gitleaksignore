@@ -1,0 +1,3 @@
+# Synthetic test JWTs in ApiFixtures.cs (payload: user_test/sess_test_xyz789, signature: fake_signature)
+1cc606975e59536e277130f0af4883ad15ec402c:FinaryExport.Tests/Fixtures/ApiFixtures.cs:jwt:94
+1cc606975e59536e277130f0af4883ad15ec402c:FinaryExport.Tests/Fixtures/ApiFixtures.cs:jwt:99
