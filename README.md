@@ -118,4 +118,4 @@ The tool discovers all Finary profiles (personal + organization memberships) and
 
 ## License
 
-Private — not licensed for redistribution.
+[MIT](LICENSE)
