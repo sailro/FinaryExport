@@ -57,7 +57,7 @@
 
 - **Scope:** Full repo (23 commits, all branches) + working tree + gitleaks automated scan.
 - **Result: CLEAN.** No real credentials, tokens, session IDs, or Finary account identifiers found in tracked files or git history.
-- **traffic data** exists on disk but was NEVER committed. Protected via `*.har`. Contains real auth headers — should be deleted when no longer needed for analysis.
+- **Traffic data (124 MB)** exists on disk but was NEVER committed. Protected via protective rules. Contains real auth headers — should be deleted when no longer needed for analysis.
 - **Data hygiene verified (D-pii):** Test fixtures use only synthetic test IDs and synthetic data. Real data never committed.
 - **Fixed two .gitignore gaps:** Added `log.txt` (runtime logs may contain truncated session IDs and org UUIDs) and `.env` (defensive — credentials could be set via env vars per architecture decision D9).
 - **Fixed stale gitleaks fingerprint:** Added `56c24dd...` commit fingerprint to `.gitleaksignore` for the synthetic test JWT in ApiFixtures.cs. Gitleaks now reports 0 leaks.

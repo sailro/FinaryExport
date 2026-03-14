@@ -1,7 +1,7 @@
 # Finary API Analysis — Traffic Capture Report
 
 > **Analyst:** Livingston (Protocol Analyst)
-> **Source:** `API traffic data` — 62MB, 2104 entries
+> **Source:** API traffic analysis — 62MB, 2104 entries
 > **Captured:** 2026-03-12 ~07:50–08:00 UTC
 > **Domains analyzed:** `clerk.finary.com` (18 entries), `api.finary.com` (1192 entries)
 

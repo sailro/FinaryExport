@@ -45,11 +45,11 @@ Finary uses **Clerk** (clerk.finary.com) for authentication. The login is a 6-st
 **Date:** 2026-03-12  
 **Scope:** Project scaffold
 
-The .NET project lives at `src/FinaryExport/` (not repo root), with the solution file `FinaryExport.sln` at the repo root. This keeps the .NET project separate from root-level artifacts (traffic datas, analysis docs, node_modules from httpproxymcp).
+The .NET project lives at `src/FinaryExport/` (not repo root), with the solution file `FinaryExport.sln` at the repo root. This keeps the .NET project separate from root-level artifacts (traffic analysis docs, node_modules from httpproxymcp).
 
 ### Alternatives Considered
 
-- **csproj at repo root** — Simpler, but mixes .NET build artifacts with traffic capture tooling. The `bin/`, `obj/` folders would clutter alongside `node_modules/`, `API traffic data`, etc.
+- **csproj at repo root** — Simpler, but mixes .NET build artifacts with traffic capture tooling. The `bin/`, `obj/` folders would clutter alongside `node_modules/` and other root-level artifacts.
 
 ### Impact
 
