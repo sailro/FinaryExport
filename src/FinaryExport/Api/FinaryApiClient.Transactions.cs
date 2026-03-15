@@ -5,8 +5,8 @@ namespace FinaryExport.Api;
 
 public sealed partial class FinaryApiClient
 {
-	public async Task<List<Transaction>> GetCategoryTransactionsAsync(AssetCategory category, int pageSize = 200, CancellationToken ct = default)
+	public async Task<List<Transaction>> GetCategoryTransactionsAsync(AssetCategory category, string period = "all", int pageSize = 200, CancellationToken ct = default)
 	{
-		return await GetPaginatedListAsync<Transaction>($"{BasePath}/portfolio/{category.ToUrlSegment()}/transactions", pageSize, ct);
+		return await GetPaginatedListAsync<Transaction>($"{BasePath}/portfolio/{category.ToUrlSegment()}/transactions?period={period}", pageSize, ct);
 	}
 }

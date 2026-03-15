@@ -178,14 +178,14 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
 	// ── Aggregated: transactions merged by ID across all memberships ──
 
 	public async Task<List<Transaction>> GetCategoryTransactionsAsync(
-		AssetCategory category, int pageSize = 200, CancellationToken ct = default)
+		AssetCategory category, string period = "all", int pageSize = 200, CancellationToken ct = default)
 	{
 		var merged = new Dictionary<long, Transaction>();
 
 		foreach (var profile in _profiles)
 		{
 			_inner.SetOrganizationContext(profile.OrgId, profile.MembershipId);
-			var transactions = await _inner.GetCategoryTransactionsAsync(category, pageSize, ct);
+			var transactions = await _inner.GetCategoryTransactionsAsync(category, period, pageSize, ct);
 
 			foreach (var tx in transactions)
 			{

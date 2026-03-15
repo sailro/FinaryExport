@@ -1,4 +1,4 @@
-namespace FinaryExport.Configuration;
+﻿namespace FinaryExport.Configuration;
 
 public sealed class FinaryOptions
 {

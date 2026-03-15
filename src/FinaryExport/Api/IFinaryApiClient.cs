@@ -27,7 +27,7 @@ public interface IFinaryApiClient
 	// Category-generic endpoints
 	Task<List<Account>> GetCategoryAccountsAsync(Models.AssetCategory category, string period = "all", CancellationToken ct = default);
 	Task<List<TimeseriesData>> GetCategoryTimeseriesAsync(Models.AssetCategory category, string period = "all", CancellationToken ct = default);
-	Task<List<Transaction>> GetCategoryTransactionsAsync(Models.AssetCategory category, int pageSize = 200, CancellationToken ct = default);
+	Task<List<Transaction>> GetCategoryTransactionsAsync(Models.AssetCategory category, string period = "all", int pageSize = 200, CancellationToken ct = default);
 
 	// Asset list (individual holdings/positions across all accounts)
 	Task<List<AssetListEntry>> GetAssetListAsync(string period = "all", CancellationToken ct = default);
