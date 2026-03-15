@@ -138,3 +138,35 @@ Rewrote ClerkAuthClient to fix Cloudflare 429 rejections. Three key changes:
 ### Rationale
 
 Based on Livingston's protocol analysis and FinarySharp's working reference implementation. The 429 was Cloudflare bot detection, not Clerk rate limiting.
+
+## Decision: PublishTrimmed Disabled in win-x64 Profile
+
+**Author:** Linus (Backend)  
+**Date:** 2026-03-14  
+**Scope:** Build / Publish
+
+### Context
+
+Created publish profile `src/FinaryExport/Properties/PublishProfiles/win-x64.pubxml` targeting self-contained single-file deployment. Evaluated whether `PublishTrimmed=true` is safe.
+
+### Analysis
+
+Trimming is **not safe** for this project. Three blockers:
+
+1. **System.Text.Json without source generators** — `FinaryApiClient` uses `JsonSerializer.Deserialize<T>(body, _jsonOptions)` with reflection-based polymorphic deserialization. Runtime `JsonSerializerOptions` with `SnakeCaseLower` naming policy. No `JsonSerializerContext` or `[JsonSerializable]` attributes. The trimmer would strip type metadata needed for deserialization. `EncryptedFileSessionStore` also uses reflection-based STJ.
+
+2. **ClosedXML** — uses reflection heavily for cell value handling and type conversion. Not annotated for trimming.
+
+3. **Microsoft.Extensions.Hosting / DI** — generic host uses reflection for service resolution, configuration binding, and logging provider registration. While .NET 10 has improved trim annotations, the combination with CurlImpersonate's native interop adds risk.
+
+### Decision
+
+`PublishTrimmed=false`. The exe is ~90 MB without trimming — acceptable for a desktop CLI tool.
+
+### Future Path
+
+To enable trimming later:
+1. Add STJ source generators (`JsonSerializerContext` with `[JsonSerializable]` for all API model types)
+2. Verify ClosedXML trim compatibility (or add `[DynamicDependency]` annotations)
+3. Test with `<PublishTrimmed>true</PublishTrimmed>` + `<TrimmerSingleWarn>false</TrimmerSingleWarn>` to surface all warnings
+4. Consider Native AOT at that point too (same prerequisites)

@@ -310,3 +310,36 @@ Finary uses Clerk authentication with mandatory TOTP 2FA. Auth flow is 6-step pr
 
 **Key Lesson:** Batch IDE diagnostic fixes are most efficient when grouped by category and applied file-by-file. Auto-property conversion (`SessionId`) requires updating all field references across the class. The `CancellationTokenSource.CancelAsync()` method (added in .NET 8) is the preferred async alternative to `Cancel()`. FluentAssertions + nullable analysis: `!` suppressions after `.Should().NotBeNull()` may be flagged as redundant by modern analyzers.
 
+### Publish Profile: win-x64 (2026-03-14)
+
+**Task:** Created a publish profile for self-contained single-file Windows x64 deployment.
+
+**File:** `src/FinaryExport/Properties/PublishProfiles/win-x64.pubxml`
+
+**Configuration:**
+- RuntimeIdentifier: `win-x64`, SelfContained, PublishSingleFile, Release configuration
+- `IncludeNativeLibrariesForSelfExtract=true` — bundles native libs into the single-file exe
+- **PublishTrimmed=false** — trimming is unsafe (see decision inbox)
+- No Native AOT
+
+**Output:** `src/FinaryExport/bin/Release/net10.0/win-x64/publish/FinaryExport.exe` (~90 MB). CurlImpersonate native files (.bat launchers, cacert.pem, runtimes/) sit alongside the exe since they can't be embedded in the single-file bundle.
+
+**Command:** `dotnet publish src/FinaryExport -p:PublishProfile=win-x64`
+
+**Key Lesson:** PublishTrimmed requires STJ source generators to be configured. This project uses reflection-based `JsonSerializer.Deserialize<T>()` with runtime `JsonSerializerOptions`. ClosedXML and Microsoft.Extensions.Hosting also rely on reflection. Trimming would break serialization and DI at runtime. If trimming is desired later, first step is migrating to STJ source generators (JsonSerializerContext).
+
+### Publish Profile Completion & Decision Filing (2026-03-15)
+
+**Task:** Completed win-x64 publish profile task with decision documentation.
+
+**Completed:**
+- Profile published and tested: ~90 MB self-contained exe ✅
+- README updated with `dotnet publish` instructions
+- Decision "PublishTrimmed Disabled in win-x64 Profile" filed to team decisions
+
+**Decision Summary:** Trimming blocked by reflection dependencies (System.Text.Json without source generators, ClosedXML reflection usage, DI container). File created: `.squad/decisions/decisions.md`
+
+**Team Notifications:**
+- Orchestration log: `.squad/orchestration-log/2026-03-15T0833-linus.md`
+- Session log: `.squad/log/2026-03-15T0833-publish-profile.md`
+
