@@ -50,15 +50,8 @@ public sealed class ClerkAuthClient(
 
 	public async Task LoginAsync(CancellationToken ct)
 	{
-		switch (_options.ClearSession)
-		{
-			case true:
-				logger.LogInformation("Clear session requested, forcing cold start");
-				await sessionStore.ClearSessionAsync(ct);
-				break;
-			case false when await TryWarmStartAsync(ct):
-				return;
-		}
+		if (await TryWarmStartAsync(ct))
+			return;
 
 		await ColdStartAsync(ct);
 	}

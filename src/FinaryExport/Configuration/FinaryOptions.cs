@@ -7,5 +7,4 @@ public sealed class FinaryOptions
 	public string OutputPath { get; set; } = "finary-export.xlsx";
 	public string Period { get; set; } = "all";
 	public string? SessionStorePath { get; set; }
-	public bool ClearSession { get; set; }
 }

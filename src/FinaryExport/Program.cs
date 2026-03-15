@@ -16,17 +16,14 @@ var rootCommand = new RootCommand("FinaryExport — Export Finary wealth data to
 
 var outputOption = new Option<string?>("--output") { Description = "Output xlsx file path" };
 var periodOption = new Option<string?>("--period") { Description = "Time period (1d, 1w, 1m, 3m, 6m, 1y, all)" };
-var clearSessionOption = new Option<bool>("--clear-session") { Description = "Force re-authentication (discard saved session)" };
-
 // Export command (default)
 var exportCommand = new Command("export", "Export Finary data to xlsx");
 exportCommand.Options.Add(outputOption);
 exportCommand.Options.Add(periodOption);
-exportCommand.Options.Add(clearSessionOption);
 
 exportCommand.SetAction(async result =>
 {
-	await RunExportAsync(result.GetValue(outputOption), result.GetValue(periodOption), result.GetValue(clearSessionOption));
+	await RunExportAsync(result.GetValue(outputOption), result.GetValue(periodOption));
 });
 
 // Clear session command
@@ -56,23 +53,22 @@ rootCommand.Subcommands.Add(versionCommand);
 // Default behavior: run export when no subcommand is specified
 rootCommand.Options.Add(outputOption);
 rootCommand.Options.Add(periodOption);
-rootCommand.Options.Add(clearSessionOption);
 rootCommand.SetAction(async result =>
 {
-	await RunExportAsync(result.GetValue(outputOption), result.GetValue(periodOption), result.GetValue(clearSessionOption));
+	await RunExportAsync(result.GetValue(outputOption), result.GetValue(periodOption));
 });
 
 return await rootCommand.Parse(args).InvokeAsync();
 
 // ── Implementation ──
 
-static async Task RunExportAsync(string? output, string? period, bool clearSession)
+static async Task RunExportAsync(string? output, string? period)
 {
 	var sw = Stopwatch.StartNew();
 	Console.WriteLine("FinaryExport v1.0.0");
 
 	var builder = Host.CreateApplicationBuilder([]);
-	ConfigureHost(builder, output, period, clearSession);
+	ConfigureHost(builder, output, period);
 	using var host = builder.Build();
 
 	var options = host.Services.GetRequiredService<IOptions<FinaryOptions>>().Value;
@@ -140,7 +136,7 @@ static async Task RunExportAsync(string? output, string? period, bool clearSessi
 	}
 }
 
-static void ConfigureHost(HostApplicationBuilder builder, string? output, string? period, bool clearSession)
+static void ConfigureHost(HostApplicationBuilder builder, string? output, string? period, bool clearSession = false)
 {
 	builder.Configuration
 		.AddJsonFile("appsettings.json", optional: true)
@@ -154,6 +150,9 @@ static void ConfigureHost(HostApplicationBuilder builder, string? output, string
 	builder.Logging.AddConsole(options =>
 		options.FormatterName = CompactConsoleFormatter.FormatterName);
 
+	// Suppress verbose HTTP client logging (request/response per-call)
+	builder.Logging.AddFilter("System.Net.Http", LogLevel.Warning);
+
 	builder.Services.Configure<FinaryOptions>(builder.Configuration.GetSection(FinaryOptions.SectionName));
 
 	// Apply CLI overrides via post-configure
@@ -161,7 +160,6 @@ static void ConfigureHost(HostApplicationBuilder builder, string? output, string
 	{
 		if (output is not null) config.OutputPath = output;
 		if (period is not null) config.Period = period;
-		if (clearSession) config.ClearSession = true;
 	});
 
 	builder.Services.AddFinaryExport();
