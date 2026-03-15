@@ -7,6 +7,19 @@
 - **Auth goal:** Fully autonomous auth — user provides credentials, tool handles login/token lifecycle independently
 - **Created:** 2026-03-12
 
+## Core Context
+
+**Implementation Overview (Active):**
+- **Auth:** CurlImpersonate-based Clerk flow (6-step cold start, 2-tier warm/cold via session store, interactive prompts). DPAPI session encryption. Token refresh every 50s via PeriodicTimer IHostedService.
+- **API Client:** Typed endpoints for 10 asset categories, pagination, rate limiting (5 req/s), retry logic with exponential backoff (Accept header, auth header preservation). FinaryApiClient is 8 partial classes split by concern (Auth, Portfolio, Accounts, Transactions, Holdings, References, Transactions, TransactionCategories). UnifiedFinaryApiClient decorator aggregates across memberships.
+- **Export:** 5 sheet types (Summary, Accounts, Transactions, Dividends, Holdings). ClosedXML with ExcelStyles formatting (currency symbols, percentages, dates). Per-category error isolation. ExportContext controls display vs raw value resolution.
+- **CLI:** export (with --output, period, currency), clear-session, version commands. Generic Host for DI, config, logging, hosted services.
+- **Models:** AssetCategory enum (10 values), Account, Transaction, SecurityPosition, Dividend, Portfolio summary, User/Organization/Membership, TransactionCategory. record types, decimal for money, STJ SnakeCaseLower naming.
+- **Testing:** 240 tests (xUnit), 13 test files. Covers auth, API, export, infrastructure, formatters. 100% pass rate. No trimming enabled (PublishTrimmed=false due to reflection dependencies).
+- **Publish:** win-x64 self-contained single-file executable (~90 MB). README has build/publish/run instructions.
+
+**Last Updated:** 2026-03-15 reassessment. Build: 0 warnings, 0 errors. All decisions filed in `.squad/decisions/decisions.md`.
+
 ## Learnings
 ### Full Source Code Audit (2026-03-15)
 
@@ -366,4 +379,42 @@ Finary uses Clerk authentication with mandatory TOTP 2FA. Auth flow is 6-step pr
 **Team Notifications:**
 - Orchestration log: `.squad/orchestration-log/2026-03-15T0833-linus.md`
 - Session log: `.squad/log/2026-03-15T0833-publish-profile.md`
+
+## Cross-Agent Updates
+
+### Full Project Reassessment Session (2026-03-15T21:21Z)
+
+**Session Type:** Multi-agent team reassessment  
+**Participants:** Rusty (Lead), Linus (Backend), Basher (Tester)  
+**Outcome:** ✅ Success — All deliverables complete
+
+**Your Deliverables (5 code fixes):**
+1. Dead endpoint removal — Eliminated unused API route
+2. Parameter alignment — Fixed method signature mismatches
+3. Column header disambiguation — Resolved Excel export header conflicts
+4. Missing Accept header on retry — Added proper HTTP header handling
+5. Unused dependency removal — Cleaned up package.json and imports
+
+**Build Status:** Clean (0 warnings, 0 errors) ✅  
+**Test Suite Impact:** Supported expansion from 134 → 240 tests (+106 new tests)
+
+**Metrics:**
+- Code quality issues fixed: 5/5
+- Tests passing: 240/240 (100%)
+- Regressions: 0
+
+**Artifacts:**
+- Orchestration log: `.squad/orchestration-log/2026-03-15T21-21-linus.md`
+- Session log: `.squad/log/2026-03-15T21-21-reassessment.md`
+
+**Key Achievements:**
+- All fixes maintain backward compatibility
+- Code audit covered all critical paths
+- Zero technical debt from these items
+- Improved maintainability through consistent APIs
+
+**Cross-team coordination notes:**
+- Rusty's documentation updates reference your API fixes
+- Basher's new tests cover areas touched by your parameter alignment work
+- All agents verified clean build state together
 

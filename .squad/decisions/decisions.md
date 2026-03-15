@@ -1,6 +1,49 @@
 # Team Decisions
 
-## Decision: Clerk Auth Flow & API Protocol Details
+## Decision: Use Claude Opus 4.6 (1M context) for All Agent Spawns
+
+**By:** Sebastien (via Copilot directive)  
+**Date:** 2026-03-15T18:36Z  
+**Scope:** Tool configuration, agent spawning
+
+### Summary
+
+All agent spawns this session and going forward use Claude Opus 4.6 (1M context) — model ID `claude-opus-4.6-1m`. This is the exact model the user runs in the foreground.
+
+### Rationale
+
+User request — desires the latest premium model for all work, not older versions. Ensures consistency between foreground and background agents.
+
+### Impact
+
+- Agent configuration: All spawns pass `model: "claude-opus-4.6-1m"` parameter
+- No change to agent responsibilities or workflows
+- Improves reasoning quality and context handling for complex tasks
+
+## Decision: Transaction Categories in Export
+
+**Author:** Linus (Backend)  
+**Date:** 2026-03-15  
+**Scope:** Models / API / Export
+
+### Summary
+
+Added `GetTransactionCategoriesAsync` to `IFinaryApiClient` and enriched the Transactions sheet with a "Transaction Category" column (column J). Categories are fetched once per export, flattened from their hierarchical structure into a flat `Dictionary<int, string>` lookup, and resolved per-transaction via `ExternalIdCategory`.
+
+### Key Details
+
+- **New model:** `TransactionCategory` record in `Models/Transactions/` — mirrors the API shape including recursive `Subcategories` list.
+- **API endpoint:** `GET {BasePath}/transaction_categories?included_in_analysis=true` — uses the standard `FinaryResponse<T>` envelope unwrapped by `GetAsync<T>`.
+- **UnifiedFinaryApiClient:** Simple passthrough with `UseOwnerContext()` — transaction categories are org-level, not membership-specific.
+- **Column placement:** Column J ("Transaction Category") after Commission (I). Column A remains the asset category enum display name.
+
+### Impact
+
+- New column appears in all exported xlsx files. If a transaction has no `ExternalIdCategory`, the cell is left blank.
+- If Finary adds new top-level categories, they'll be picked up automatically since the lookup is built dynamically from the API response.
+- The `TransactionCategory` model includes all fields from the API even though only `id` and `name` are currently used — supports future features.
+
+## Clerk Auth Flow & API Protocol Details
 
 **By:** Livingston (Protocol Analyst)  
 **Date:** 2026-03-12  
