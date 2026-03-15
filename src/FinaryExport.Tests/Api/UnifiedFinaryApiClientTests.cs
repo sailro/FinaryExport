@@ -1,13 +1,13 @@
-using FluentAssertions;
-using Moq;
 using FinaryExport.Api;
 using FinaryExport.Models;
 using FinaryExport.Models.Accounts;
 using FinaryExport.Models.Portfolio;
 using FinaryExport.Models.Transactions;
 using FinaryExport.Models.User;
+using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace FinaryExport.Tests.Api;
 

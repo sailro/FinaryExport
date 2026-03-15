@@ -1,10 +1,10 @@
-using FluentAssertions;
-using Moq;
 using FinaryExport.Auth;
 using FinaryExport.Configuration;
 using FinaryExport.Tests.Helpers;
+using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Moq;
 
 namespace FinaryExport.Tests.Auth;
 

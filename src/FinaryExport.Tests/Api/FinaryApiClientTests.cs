@@ -1,8 +1,8 @@
 using System.Net;
-using FluentAssertions;
 using FinaryExport.Models;
 using FinaryExport.Tests.Fixtures;
 using FinaryExport.Tests.Helpers;
+using FluentAssertions;
 
 namespace FinaryExport.Tests.Api;
 

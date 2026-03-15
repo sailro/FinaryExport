@@ -13,6 +13,7 @@ public sealed class PortfolioSummarySheet : ISheetWriter
 	{
 		var portfolio = await api.GetPortfolioAsync(ct: ct);
 		var ws = workbook.Worksheets.Add(SheetName);
+		var currencyFormat = context.CurrencyFormat;
 
 		// Header
 		ws.Cell("A1").Value = "Portfolio Summary";
@@ -30,12 +31,12 @@ public sealed class PortfolioSummarySheet : ISheetWriter
 			var gross = portfolio.Gross.Total;
 			ws.Cell($"A{row}").Value = "Gross Total";
 			ws.Cell($"B{row}").Value = context.ResolveValue(gross.DisplayAmount, gross.Amount);
-			ws.Cell($"B{row}").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
+			ws.Cell($"B{row}").Style.NumberFormat.Format = currencyFormat;
 			row++;
 
 			ws.Cell($"A{row}").Value = "Gross Evolution";
 			ws.Cell($"B{row}").Value = gross.Evolution ?? 0m;
-			ws.Cell($"B{row}").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
+			ws.Cell($"B{row}").Style.NumberFormat.Format = currencyFormat;
 			row++;
 
 			ws.Cell($"A{row}").Value = "Gross Evolution %";
@@ -49,12 +50,12 @@ public sealed class PortfolioSummarySheet : ISheetWriter
 			var net = portfolio.Net.Total;
 			ws.Cell($"A{row}").Value = "Net Total";
 			ws.Cell($"B{row}").Value = context.ResolveValue(net.DisplayAmount, net.Amount);
-			ws.Cell($"B{row}").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
+			ws.Cell($"B{row}").Style.NumberFormat.Format = currencyFormat;
 			row++;
 
 			ws.Cell($"A{row}").Value = "Net Evolution";
 			ws.Cell($"B{row}").Value = net.Evolution ?? 0m;
-			ws.Cell($"B{row}").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
+			ws.Cell($"B{row}").Style.NumberFormat.Format = currencyFormat;
 			row++;
 
 			ws.Cell($"A{row}").Value = "Net Evolution %";
@@ -80,7 +81,7 @@ public sealed class PortfolioSummarySheet : ISheetWriter
 				ws.Cell($"A{row}").Value = category.ToDisplayName();
 				ws.Cell($"B{row}").Value = accounts.Count;
 				ws.Cell($"C{row}").Value = totalBalance;
-				ws.Cell($"C{row}").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
+				ws.Cell($"C{row}").Style.NumberFormat.Format = currencyFormat;
 				row++;
 			}
 			catch (Exception)

@@ -5,6 +5,8 @@ using FinaryExport.Auth;
 using FinaryExport.Configuration;
 using FinaryExport.Export;
 using FinaryExport.Infrastructure;
+using FinaryExport.Models;
+using FinaryExport.Models.Accounts;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -90,13 +92,20 @@ static async Task RunExportAsync(string? output)
 
 		// 3. Export one xlsx per profile (ownership-adjusted values)
 		var exporter = host.Services.GetRequiredService<IWorkbookExporter>();
-		var profileContext = new ExportContext { UseDisplayValues = true };
 		for (var i = 0; i < profiles.Count; i++)
 		{
 			var profile = profiles[i];
 			Console.WriteLine($"Exporting profile {i + 1}/{profiles.Count}: {profile.ProfileName}...");
 
 			apiClient.SetOrganizationContext(profile.OrgId, profile.MembershipId);
+
+			// Detect display currency from first available account
+			var displayCurrencySymbol = await DetectDisplayCurrencySymbolAsync(apiClient);
+			var profileContext = new ExportContext
+			{
+				UseDisplayValues = true,
+				DisplayCurrencySymbol = displayCurrencySymbol
+			};
 
 			var outputPath = BuildOutputPath(options.OutputPath, profile.ProfileName);
 			await exporter.ExportAsync(outputPath, apiClient, profileContext);
@@ -108,7 +117,14 @@ static async Task RunExportAsync(string? output)
 		{
 			Console.WriteLine($"Exporting unified ({profiles.Count} profiles)...");
 			var unifiedApi = new UnifiedFinaryApiClient(apiClient, profiles, logger);
-			var unifiedContext = new ExportContext { UseDisplayValues = false };
+
+			// For unified export, also try to detect currency symbol
+			var unifiedCurrencySymbol = await DetectDisplayCurrencySymbolAsync(unifiedApi);
+			var unifiedContext = new ExportContext
+			{
+				UseDisplayValues = false,
+				DisplayCurrencySymbol = unifiedCurrencySymbol
+			};
 			var unifiedPath = BuildUnifiedPath(options.OutputPath);
 			await exporter.ExportAsync(unifiedPath, unifiedApi, unifiedContext);
 			Console.WriteLine($"  -> {unifiedPath}");
@@ -132,6 +148,44 @@ static async Task RunExportAsync(string? output)
 	{
 		await host.StopAsync();
 	}
+}
+
+// Detects the display currency symbol by checking accounts across categories
+static async Task<string?> DetectDisplayCurrencySymbolAsync(IFinaryApiClient api)
+{
+	// The display currency is the user's chosen currency in Finary settings (ui_configuration).
+	// This is the currency all display values are converted to.
+	try
+	{
+		var user = await api.GetCurrentUserAsync();
+		var symbol = user?.UiConfiguration?.DisplayCurrency?.Symbol;
+		if (!string.IsNullOrEmpty(symbol))
+			return symbol;
+	}
+	catch
+	{
+		// Fall through to fallback
+	}
+
+	// Fallback: scan accounts for first currency symbol (native, not display — imperfect)
+	foreach (var category in Enum.GetValues<AssetCategory>())
+	{
+		try
+		{
+			var accounts = await api.GetCategoryAccountsAsync(category);
+			var symbol = accounts
+				.Select(a => a.Currency?.Symbol)
+				.FirstOrDefault(s => !string.IsNullOrEmpty(s));
+
+			if (!string.IsNullOrEmpty(symbol))
+				return symbol;
+		}
+		catch
+		{
+			// Continue to next category
+		}
+	}
+	return null;
 }
 
 static void ConfigureHost(HostApplicationBuilder builder, string? output, bool clearSession = false)

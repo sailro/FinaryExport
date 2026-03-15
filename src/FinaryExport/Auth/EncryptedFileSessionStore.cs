@@ -1,9 +1,9 @@
 using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json;
+using FinaryExport.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using FinaryExport.Configuration;
 
 namespace FinaryExport.Auth;
 

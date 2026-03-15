@@ -16,6 +16,7 @@ public sealed class HoldingsSheet(ILogger<HoldingsSheet> logger) : ISheetWriter
 		var accounts = await api.GetCategoryAccountsAsync(AssetCategory.Investments, ct: ct);
 
 		var ws = workbook.Worksheets.Add(SheetName);
+		var currencyFormat = context.CurrencyFormat;
 
 		// Headers
 		ws.Cell("A1").Value = "Account";
@@ -54,16 +55,16 @@ public sealed class HoldingsSheet(ILogger<HoldingsSheet> logger) : ISheetWriter
 			ws.Cell($"F{row}").Style.NumberFormat.Format = "#,##0.####";
 
 			ws.Cell($"G{row}").Value = context.ResolveValue(pos.DisplayBuyingPrice, pos.BuyingPrice);
-			ws.Cell($"G{row}").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
+			ws.Cell($"G{row}").Style.NumberFormat.Format = currencyFormat;
 
-			ws.Cell($"H{row}").Value = sec?.CurrentPrice ?? 0m;
-			ws.Cell($"H{row}").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
+			ws.Cell($"H{row}").Value = context.ResolveValue(sec?.DisplayCurrentPrice, sec?.CurrentPrice);
+			ws.Cell($"H{row}").Style.NumberFormat.Format = currencyFormat;
 
 			ws.Cell($"I{row}").Value = context.ResolveValue(pos.DisplayCurrentValue, pos.CurrentValue);
-			ws.Cell($"I{row}").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
+			ws.Cell($"I{row}").Style.NumberFormat.Format = currencyFormat;
 
 			ws.Cell($"J{row}").Value = context.ResolveValue(pos.DisplayCurrentUpnl, pos.CurrentUpnl);
-			ws.Cell($"J{row}").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
+			ws.Cell($"J{row}").Style.NumberFormat.Format = currencyFormat;
 
 			var pnlPct = context.ResolveValue(pos.DisplayCurrentUpnlPercent, pos.CurrentUpnlPercent) / 100m;
 			ws.Cell($"K{row}").Value = pnlPct;

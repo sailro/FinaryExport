@@ -13,6 +13,7 @@ public sealed class DividendsSheet(ILogger<DividendsSheet> logger) : ISheetWrite
 	{
 		var dividends = await api.GetPortfolioDividendsAsync(ct);
 		var ws = workbook.Worksheets.Add(SheetName);
+		var currencyFormat = context.CurrencyFormat;
 
 		// Summary section
 		ws.Cell("A1").Value = "Dividends Summary";
@@ -25,15 +26,15 @@ public sealed class DividendsSheet(ILogger<DividendsSheet> logger) : ISheetWrite
 
 		ws.Cell("A4").Value = "Annual Income";
 		ws.Cell("B4").Value = dividends?.AnnualIncome ?? 0m;
-		ws.Cell("B4").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
+		ws.Cell("B4").Style.NumberFormat.Format = currencyFormat;
 
 		ws.Cell("A5").Value = "Past Income";
 		ws.Cell("B5").Value = dividends?.PastIncome ?? 0m;
-		ws.Cell("B5").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
+		ws.Cell("B5").Style.NumberFormat.Format = currencyFormat;
 
 		ws.Cell("A6").Value = "Next Year";
 		ws.Cell("B6").Value = dividends?.NextYear?.Sum(e => e.Value ?? 0m) ?? 0m;
-		ws.Cell("B6").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
+		ws.Cell("B6").Style.NumberFormat.Format = currencyFormat;
 
 		ws.Cell("A7").Value = "Yield";
 		ws.Cell("B7").Value = (dividends?.Yield ?? 0m) / 100m;
@@ -59,8 +60,8 @@ public sealed class DividendsSheet(ILogger<DividendsSheet> logger) : ISheetWrite
 			foreach (var div in dividends.PastDividends)
 			{
 				ws.Cell($"A{row}").Value = div.Asset?.Name ?? div.Holding?.Name ?? div.AssetType ?? "";
-				ws.Cell($"B{row}").Value = div.Amount ?? 0m;
-				ws.Cell($"B{row}").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
+				ws.Cell($"B{row}").Value = context.ResolveValue(div.DisplayAmount, div.Amount);
+				ws.Cell($"B{row}").Style.NumberFormat.Format = currencyFormat;
 				ws.Cell($"C{row}").Value = div.PaymentAt ?? "";
 				ws.Cell($"D{row}").Value = div.AssetSubtype ?? "";
 				ws.Cell($"E{row}").Value = div.AssetType ?? "";
@@ -89,8 +90,8 @@ public sealed class DividendsSheet(ILogger<DividendsSheet> logger) : ISheetWrite
 			foreach (var div in dividends.UpcomingDividends)
 			{
 				ws.Cell($"A{row}").Value = div.Asset?.Name ?? div.Holding?.Name ?? div.AssetType ?? "";
-				ws.Cell($"B{row}").Value = div.Amount ?? 0m;
-				ws.Cell($"B{row}").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
+				ws.Cell($"B{row}").Value = context.ResolveValue(div.DisplayAmount, div.Amount);
+				ws.Cell($"B{row}").Style.NumberFormat.Format = currencyFormat;
 				ws.Cell($"C{row}").Value = div.PaymentAt ?? "";
 				ws.Cell($"D{row}").Value = div.Status ?? "";
 				ws.Cell($"E{row}").Value = div.AssetType ?? "";

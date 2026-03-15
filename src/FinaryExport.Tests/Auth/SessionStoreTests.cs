@@ -1,8 +1,8 @@
 using System.Net;
-using FluentAssertions;
 using FinaryExport.Auth;
 using FinaryExport.Tests.Fixtures;
 using FinaryExport.Tests.Helpers;
+using FluentAssertions;
 
 namespace FinaryExport.Tests.Auth;
 

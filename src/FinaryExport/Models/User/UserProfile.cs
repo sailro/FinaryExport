@@ -15,4 +15,16 @@ public sealed record UserProfile
 	public bool PlusAccess { get; init; }
 	public bool ProAccess { get; init; }
 	public string? SubscriptionStatus { get; init; }
+	public UiConfiguration? UiConfiguration { get; init; }
+}
+
+public sealed record UiConfiguration
+{
+	public DisplayCurrencyInfo? DisplayCurrency { get; init; }
+}
+
+public sealed record DisplayCurrencyInfo
+{
+	public string? Code { get; init; }
+	public string? Symbol { get; init; }
 }

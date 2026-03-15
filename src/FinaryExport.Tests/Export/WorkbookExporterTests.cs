@@ -1,6 +1,6 @@
 using ClosedXML.Excel;
-using FluentAssertions;
 using FinaryExport.Models.Accounts;
+using FluentAssertions;
 
 namespace FinaryExport.Tests.Export;
 

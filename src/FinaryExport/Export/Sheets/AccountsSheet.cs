@@ -13,6 +13,8 @@ public sealed class AccountsSheet(ILogger<AccountsSheet> logger) : ISheetWriter
 
 	public async Task WriteAsync(IXLWorkbook workbook, IFinaryApiClient api, ExportContext context, CancellationToken ct)
 	{
+		var currencyFormat = context.CurrencyFormat;
+
 		foreach (var category in Enum.GetValues<AssetCategory>())
 		{
 			try
@@ -29,7 +31,7 @@ public sealed class AccountsSheet(ILogger<AccountsSheet> logger) : ISheetWriter
 				ws.Cell("A1").Value = "Name";
 				ws.Cell("B1").Value = "Institution";
 				ws.Cell("C1").Value = "Balance";
-				ws.Cell("D1").Value = "Currency";
+				ws.Cell("D1").Value = "Native Currency";
 				ws.Cell("E1").Value = "Buying Value";
 				ws.Cell("F1").Value = "Unrealized P&L";
 				ws.Cell("G1").Value = "Annual Yield";
@@ -44,12 +46,12 @@ public sealed class AccountsSheet(ILogger<AccountsSheet> logger) : ISheetWriter
 					ws.Cell($"A{row}").Value = account.Name ?? "";
 					ws.Cell($"B{row}").Value = account.Institution?.Name ?? "";
 					ws.Cell($"C{row}").Value = context.ResolveValue(account.DisplayBalance, account.Balance);
-					ws.Cell($"C{row}").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
+					ws.Cell($"C{row}").Style.NumberFormat.Format = currencyFormat;
 					ws.Cell($"D{row}").Value = account.Currency?.Code ?? "";
 					ws.Cell($"E{row}").Value = context.ResolveValue(account.DisplayBuyingValue, account.BuyingValue);
-					ws.Cell($"E{row}").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
+					ws.Cell($"E{row}").Style.NumberFormat.Format = currencyFormat;
 					ws.Cell($"F{row}").Value = account.UnrealizedPnl ?? 0m;
-					ws.Cell($"F{row}").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
+					ws.Cell($"F{row}").Style.NumberFormat.Format = currencyFormat;
 					ws.Cell($"G{row}").Value = (account.AnnualYield ?? 0m) / 100m;
 					ws.Cell($"G{row}").Style.NumberFormat.Format = ExcelStyles.PercentFormat;
 					ws.Cell($"H{row}").Value = account.Iban ?? "";

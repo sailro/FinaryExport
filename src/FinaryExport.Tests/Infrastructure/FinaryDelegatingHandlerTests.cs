@@ -1,12 +1,12 @@
 using System.Net;
 using System.Net.Http.Headers;
-using FluentAssertions;
-using Moq;
 using FinaryExport.Api;
 using FinaryExport.Auth;
 using FinaryExport.Infrastructure;
 using FinaryExport.Tests.Helpers;
+using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace FinaryExport.Tests.Infrastructure;
 

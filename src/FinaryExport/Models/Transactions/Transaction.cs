@@ -14,6 +14,7 @@ public sealed record Transaction
 	public string? TransactionType { get; init; }
 	public decimal? Commission { get; init; }
 	public int? ExternalIdCategory { get; init; }
+	public TransactionCategory? Category { get; init; }
 	public TransactionCurrency? Currency { get; init; }
 	public TransactionInstitution? Institution { get; init; }
 	public TransactionAccount? Account { get; init; }

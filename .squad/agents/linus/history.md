@@ -8,6 +8,18 @@
 - **Created:** 2026-03-12
 
 ## Learnings
+### Currency Header Rename & Value Resolution Audit (2026-03-15)
+
+Renamed "Currency" column header to "Native Currency" in **AccountsSheet** (column D) and **TransactionsSheet** (column H) to clarify this is the original account/transaction currency, not the display currency (which is already visible in amount cell number formats via `context.CurrencyFormat`). Fixed value resolution inconsistencies: **TransactionsSheet** was using `tx.Value ?? 0m` directly instead of `context.ResolveValue(tx.DisplayValue, tx.Value)` — now uses ResolveValue for consistency with AccountsSheet. **DividendsSheet** had the same issue: both Past and Upcoming dividend detail rows used `div.Amount ?? 0m` instead of `context.ResolveValue(div.DisplayAmount, div.Amount)` — fixed both. Summary fields (`AnnualIncome`, `PastIncome`, etc.) lack display variants in the API model and were left as-is. Commission on Transaction also has no display variant — left as-is.
+
+### Currency Column Addition (2026-03-15)
+
+Added currency context to sheets that show monetary amounts. **AccountsSheet** and **TransactionsSheet** already had Currency columns (D and H respectively) — no changes needed. **PortfolioSummarySheet** now derives the display currency from the first account with a `Currency.Code` during the per-category iteration, then writes a "Currency: XXX" label in cell C1 (italic, right-aligned). **HoldingsSheet** gained a new column L "Currency" showing `account.Currency?.Code` for each security row. **DividendsSheet** was the most involved: added `GetCurrencyCode(JsonElement?)` helper to parse the `code` property from the `DisplayCurrency`/`Currency` JsonElement fields on `DividendEntry`, a `GetDisplayCurrencyFromEntries` helper that scans past/upcoming dividends for the first available currency, a "Currency: XXX" label at the top (C1), and a new "Currency" column (C) in both Past Dividends and Upcoming Dividends detail tables — shifting Date/Type/Status/Category columns right by one (D-F). The display currency fallback chain is: `DisplayCurrency.code` → `Currency.code` → empty string.
+
+### Transaction Categories Export (2026-03-15)
+
+Added transaction category enrichment to the export. Created `TransactionCategory` model in `Models/Transactions/`, new `FinaryApiClient.TransactionCategories.cs` partial calling `GET {BasePath}/transaction_categories?included_in_analysis=true`, passthrough in `UnifiedFinaryApiClient` (categories are org-level, not profile-specific). In `TransactionsSheet`, categories are fetched once, flattened recursively (parent + subcategories) into a `Dictionary<int, string>` lookup, then each transaction's `ExternalIdCategory` is resolved to its name in a new "Transaction Category" column (J). The existing `GetAsync<T>` helper unwraps the `FinaryResponse<T>` envelope automatically, so no wrapper type was needed. The `ExternalIdCategory` field is `int?` in the model matching the category `Id` type — no type mismatch to handle.
+
 ### Period Parameter Threading (2026-03-14)
 
 Threaded the CLI `--period` flag through `GetCategoryAccountsAsync` and `GetAssetListAsync`. Both previously hardcoded `period=1d`. Added `string period = "1d"` parameter (backward-compatible default) to the interface, `FinaryApiClient`, and `UnifiedFinaryApiClient`. The unified client's account cache key was updated to `(AssetCategory, string)` to correctly vary by period. Added `Period` property to `ExportContext` (default `"1d"`), set from `FinaryOptions.Period` in `Program.cs`. Sheet writers (`AccountsSheet`, `PortfolioSummarySheet`, `HoldingsSheet`) now pass `context.Period` to the API. Flow: CLI `--period` → `FinaryOptions.Period` → `ExportContext.Period` → sheet writers → API client.

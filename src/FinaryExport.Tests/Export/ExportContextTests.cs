@@ -1,5 +1,5 @@
-using FluentAssertions;
 using FinaryExport.Export;
+using FluentAssertions;
 
 namespace FinaryExport.Tests.Export;
 

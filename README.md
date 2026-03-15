@@ -34,25 +34,13 @@ Exports all profiles to the default output directory. Each profile gets its own 
 dotnet run --project src/FinaryExport -- export --output myfile.xlsx
 ```
 
-### Export with time period filter
-
-```bash
-dotnet run --project src/FinaryExport -- export --period 1y
-```
-
-Supported periods: `1d`, `1w`, `1m`, `3m`, `6m`, `1y`, `all` (default: `all`).
-
 ### Force re-authentication
-
-```bash
-dotnet run --project src/FinaryExport -- export --clear-session
-```
-
-Discards the cached session and forces a fresh login for this run. Can also be used as a standalone command:
 
 ```bash
 dotnet run --project src/FinaryExport -- clear-session
 ```
+
+Discards the cached session and forces a fresh login on the next export.
 
 ### Show version
 
@@ -69,6 +57,28 @@ On first run, FinaryExport prompts interactively for:
 3. **TOTP code** — a 6-digit code from your authenticator app (if 2FA is enabled)
 
 After successful login, the session is encrypted and cached locally using DPAPI (Windows). Subsequent runs reuse the cached session until it expires, with automatic token refresh in the background.
+
+### Session Storage & Security
+
+**Your email, password, and TOTP codes are never saved to disk.** They are used only during the interactive login prompt and discarded immediately after authentication.
+
+What IS saved is a session token and cookies, stored in:
+
+```
+~/.finaryexport/session.dat
+```
+
+This file is encrypted at rest using [**DPAPI** (Data Protection API)](https://learn.microsoft.com/en-us/dotnet/standard/security/how-to-use-data-protection) — a well-established Windows cryptographic framework used by Chrome, Edge, and other major applications to protect sensitive data. DPAPI encryption is scoped to the current Windows user account, meaning the file cannot be decrypted by other users on the same machine or if copied to another computer.
+
+To discard the cached session, use `clear-session` (see above) or simply delete `~/.finaryexport/session.dat`.
+
+## Currency Handling
+
+Finary lets you choose a **display currency** in your account settings (e.g. EUR, USD). All monetary values in the export (balances, prices, P&L, dividends…) are expressed in this display currency, and the corresponding symbol (€, $, £…) is automatically applied to every amount column in the workbook.
+
+Each account and transaction also has a **Native Currency** column showing the original currency of the underlying asset or operation — for example, a US brokerage account will show `USD` as native currency even if your display currency is set to EUR.
+
+> **Tip:** To change the currency used in the export, update your display currency in Finary's settings and re-export.
 
 ## Output
 
@@ -97,7 +107,7 @@ Up to 10 category-specific sheets — only created if the category has accounts:
 | Other Assets | Miscellaneous assets |
 | Startups | Startup equity/investments |
 
-Each account sheet has columns: **Name**, **Institution**, **Balance**, **Currency**, **Buying Value**, **Unrealized P&L**, **Annual Yield**, **IBAN**, **Opened At**, **Last Sync**.
+Each account sheet has columns: **Name**, **Institution**, **Balance**, **Native Currency**, **Buying Value**, **Unrealized P&L**, **Annual Yield**, **IBAN**, **Opened At**, **Last Sync**.
 
 ### Holdings
 
@@ -105,7 +115,7 @@ Individual security positions from investment accounts: **Account**, **Name**, *
 
 ### Transactions
 
-Buy/sell/income/expense records across checking, savings, investment, and credit accounts: **Category**, **Date**, **Name**, **Value**, **Type**, **Account**, **Institution**, **Currency**, **Commission**.
+Buy/sell/income/expense records across checking, savings, investment, and credit accounts: **Category**, **Date**, **Name**, **Value**, **Type**, **Account**, **Institution**, **Native Currency**, **Commission**.
 
 > Note: Only 4 categories support transactions in the Finary API (checkings, savings, investments, credits). Real estate, cryptos, and others do not have transaction endpoints.
 

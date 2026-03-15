@@ -14,6 +14,7 @@ public sealed class TransactionsSheet(ILogger<TransactionsSheet> logger) : IShee
 	public async Task WriteAsync(IXLWorkbook workbook, IFinaryApiClient api, ExportContext context, CancellationToken ct)
 	{
 		var ws = workbook.Worksheets.Add(SheetName);
+		var currencyFormat = context.CurrencyFormat;
 
 		// Headers
 		ws.Cell("A1").Value = "Category";
@@ -23,8 +24,9 @@ public sealed class TransactionsSheet(ILogger<TransactionsSheet> logger) : IShee
 		ws.Cell("E1").Value = "Type";
 		ws.Cell("F1").Value = "Account";
 		ws.Cell("G1").Value = "Institution";
-		ws.Cell("H1").Value = "Currency";
+		ws.Cell("H1").Value = "Native Currency";
 		ws.Cell("I1").Value = "Commission";
+		ws.Cell("J1").Value = "Category";
 		ExcelStyles.ApplyHeaderStyle(ws.Row(1));
 
 		var row = 2;
@@ -41,14 +43,15 @@ public sealed class TransactionsSheet(ILogger<TransactionsSheet> logger) : IShee
 					ws.Cell($"A{row}").Value = category.ToDisplayName();
 					ws.Cell($"B{row}").Value = tx.Date ?? "";
 					ws.Cell($"C{row}").Value = tx.DisplayName ?? tx.Name ?? "";
-					ws.Cell($"D{row}").Value = tx.Value ?? 0m;
-					ws.Cell($"D{row}").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
+					ws.Cell($"D{row}").Value = context.ResolveValue(tx.DisplayValue, tx.Value);
+					ws.Cell($"D{row}").Style.NumberFormat.Format = currencyFormat;
 					ws.Cell($"E{row}").Value = tx.TransactionType ?? "";
 					ws.Cell($"F{row}").Value = tx.Account?.Name ?? "";
 					ws.Cell($"G{row}").Value = tx.Institution?.Name ?? "";
 					ws.Cell($"H{row}").Value = tx.Currency?.Code ?? "";
 					ws.Cell($"I{row}").Value = tx.Commission ?? 0m;
-					ws.Cell($"I{row}").Style.NumberFormat.Format = ExcelStyles.CurrencyFormat;
+					ws.Cell($"I{row}").Style.NumberFormat.Format = currencyFormat;
+					ws.Cell($"J{row}").Value = tx.Category?.Name ?? "";
 					row++;
 					totalRecords++;
 					categoryRecords++;
