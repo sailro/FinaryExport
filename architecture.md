@@ -51,7 +51,6 @@ src/FinaryExport/
 |   +-- FinaryApiClient.Portfolio.cs    # Portfolio, timeseries, dividends, allocations, fees, asset list
 |   +-- FinaryApiClient.Reference.cs    # Holdings accounts
 |   +-- FinaryApiClient.Transactions.cs # Transaction endpoints (paginated)
-|   +-- FinaryApiClient.TransactionCategories.cs # Transaction category list
 |   +-- UnifiedFinaryApiClient.cs       # Decorator: merges data across all profiles
 |   +-- RateLimiter.cs                  # Token-bucket, ~5 req/s
 |
@@ -249,13 +248,12 @@ Token-bucket pattern using `SemaphoreSlim`. Enforces ~5 req/s (200ms minimum int
 
 ### FinaryApiClient
 
-Partial class split across 6 files:
+Partial class split across 5 files:
 - **Core** (`FinaryApiClient.cs`): Constructor, org context management, generic `GetAsync<T>` with pagination, `GetCurrentUser`, `GetAllProfiles`
 - **Categories** (`FinaryApiClient.Categories.cs`): `GetCategoryAccountsAsync`, `GetCategoryTimeseriesAsync` — generic over `AssetCategory` enum
 - **Portfolio** (`FinaryApiClient.Portfolio.cs`): Portfolio summary, timeseries, dividends, geographical/sector allocation, fees, asset list
 - **Reference** (`FinaryApiClient.Reference.cs`): Holdings accounts
 - **Transactions** (`FinaryApiClient.Transactions.cs`): Paginated transaction retrieval by category
-- **TransactionCategories** (`FinaryApiClient.TransactionCategories.cs`): Transaction category list
 
 All methods use organization-scoped URLs: `/organizations/{orgId}/memberships/{membershipId}/...`
 

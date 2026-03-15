@@ -733,7 +733,7 @@ Some endpoints (cashflow, transactions) accept explicit dates:
    - `GET /users/me/organizations` — used by `FinaryApiClient` for profile discovery and org context
    - `GET .../holdings_accounts` — used by `HoldingsSheet`
    - `GET .../portfolio/{category}/accounts` — used by `AccountsSheet`, `PortfolioSummarySheet`, `HoldingsSheet` (investments only)
-   - `GET .../portfolio/{category}/transactions` — used by `TransactionsSheet` (filtered to checkings, savings, investments, credits via `AssetCategory.HasTransactions()`)
+   - `GET .../portfolio/{category}/transactions` — used by `TransactionsSheet` (filtered to checkings, savings, investments, credits via `AssetCategory.HasTransactions()`). Transaction category comes inline from API response, not from a separate endpoint.
    - `GET .../portfolio` — used by `PortfolioSummarySheet`
    - `GET .../portfolio/timeseries` — used by `PortfolioSummarySheet`
    - `GET .../portfolio/dividends` — used by `DividendsSheet`
@@ -742,7 +742,6 @@ Some endpoints (cashflow, transactions) accept explicit dates:
    - `GET .../portfolio/fees` — called by `IFinaryApiClient` (not exported to a sheet currently)
    - `GET .../asset_list` — called by `IFinaryApiClient`, used by `HoldingsSheet`
    - `GET .../portfolio/{category}/timeseries` — called by `IFinaryApiClient` (not exported to a sheet currently)
-   - `GET .../transaction_categories` — called by `FinaryApiClient.TransactionCategories.cs`, transaction categories shown on `TransactionsSheet`
 
 3. **Rate Limiting:** ✅ Implemented
    - No rate limit headers observed (`X-RateLimit-*` absent)
