@@ -1,4 +1,4 @@
-using ClosedXML.Excel;
+﻿using ClosedXML.Excel;
 using FinaryExport.Api;
 using FinaryExport.Export.Formatting;
 using FinaryExport.Models;
@@ -13,7 +13,7 @@ public sealed class HoldingsSheet(ILogger<HoldingsSheet> logger) : ISheetWriter
 
 	public async Task WriteAsync(IXLWorkbook workbook, IFinaryApiClient api, ExportContext context, CancellationToken ct)
 	{
-		var accounts = await api.GetCategoryAccountsAsync(AssetCategory.Investments, context.Period, ct);
+		var accounts = await api.GetCategoryAccountsAsync(AssetCategory.Investments, ct: ct);
 
 		var ws = workbook.Worksheets.Add(SheetName);
 
@@ -33,11 +33,11 @@ public sealed class HoldingsSheet(ILogger<HoldingsSheet> logger) : ISheetWriter
 
 		// Flatten accounts -> securities, sorted by account name then security name
 		var rows = accounts
-			.Where(a => a.Securities is not null)
-			.SelectMany(a => a.Securities!.Select(s => (Account: a, Position: s)))
-			.OrderBy(r => r.Account.Name ?? "")
-			.ThenBy(r => r.Position.Security?.Name ?? "")
-			.ToList();
+		.Where(a => a.Securities is not null)
+		.SelectMany(a => a.Securities!.Select(s => (Account: a, Position: s)))
+		.OrderBy(r => r.Account.Name ?? "")
+		.ThenBy(r => r.Position.Security?.Name ?? "")
+		.ToList();
 
 		var row = 2;
 		foreach (var (account, pos) in rows)

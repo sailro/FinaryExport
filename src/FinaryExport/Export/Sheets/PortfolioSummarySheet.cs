@@ -1,4 +1,4 @@
-using ClosedXML.Excel;
+﻿using ClosedXML.Excel;
 using FinaryExport.Api;
 using FinaryExport.Export.Formatting;
 using FinaryExport.Models;
@@ -75,7 +75,7 @@ public sealed class PortfolioSummarySheet : ISheetWriter
 		{
 			try
 			{
-				var accounts = await api.GetCategoryAccountsAsync(category, context.Period, ct);
+				var accounts = await api.GetCategoryAccountsAsync(category, ct: ct);
 				var totalBalance = accounts.Sum(a => context.ResolveValue(a.DisplayBalance, a.Balance));
 				ws.Cell($"A{row}").Value = category.ToDisplayName();
 				ws.Cell($"B{row}").Value = accounts.Count;
