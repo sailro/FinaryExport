@@ -45,4 +45,32 @@ public sealed class ExportContextTests
 	{
 		new ExportContext().UseDisplayValues.Should().BeTrue();
 	}
+
+	[Fact]
+	public void CurrencyFormat_WithSymbol_IncludesSymbol()
+	{
+		var ctx = new ExportContext { DisplayCurrencySymbol = "€" };
+		ctx.CurrencyFormat.Should().Contain("€");
+		ctx.CurrencyFormat.Should().Contain("#,##0.00");
+	}
+
+	[Fact]
+	public void CurrencyFormat_WithoutSymbol_UsesDefault()
+	{
+		var ctx = new ExportContext { DisplayCurrencySymbol = null };
+		ctx.CurrencyFormat.Should().Be("#,##0.00");
+	}
+
+	[Fact]
+	public void DisplayCurrencySymbol_DefaultsToNull()
+	{
+		new ExportContext().DisplayCurrencySymbol.Should().BeNull();
+	}
+
+	[Fact]
+	public void ResolveValue_BothNull_UseDisplayFalse_ReturnsZero()
+	{
+		var ctx = new ExportContext { UseDisplayValues = false };
+		ctx.ResolveValue(null, null).Should().Be(0m);
+	}
 }

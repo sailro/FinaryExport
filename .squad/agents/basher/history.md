@@ -179,3 +179,36 @@ The contract stubs matched Linus's implementation remarkably well. Interface sig
 
 **Build:** ✅ Clean. **Tests:** ✅ All 134 pass.
 
+### Full Coverage Audit & Expansion: 240 Tests (2026-03-14)
+
+**Context:** Comprehensive coverage audit identified 10 untested source areas. All gaps filled.
+
+**Coverage gaps found and closed:**
+
+| Gap | File Created | Tests Added |
+|---|---|---|
+| TransactionsSheet (zero coverage) | `Export/TransactionsSheetTests.cs` | 11 — headers, category filtering (HasTransactions gate), data writing, display/raw value resolution, empty data message, multi-category aggregation, error isolation, null field safety, currency formatting, name fallback |
+| AccountsSheet (zero coverage) | `Export/AccountsSheetTests.cs` | 12 — headers, per-category sheet creation, data writing, display/raw value, null safety, error isolation, currency format, yield-to-percent conversion, display name for sheet, all 10 categories |
+| DividendsSheet (zero coverage) | `Export/DividendsSheetTests.cs` | 7 — summary metrics, past dividends detail, upcoming dividends detail, null data safety, name fallback chain (Asset→Holding→AssetType), currency formatting |
+| PortfolioSummarySheet (zero coverage) | `Export/PortfolioSummarySheetTests.cs` | 7 — gross/net summary, category breakdown with totals, null portfolio safety, category error→"Error" row, display value for category totals, currency formatting |
+| RateLimiter (zero coverage) | `Api/RateLimiterTests.cs` | 6 — first call immediate, second call delayed, cancellation, concurrent serialization, post-interval immediate, ~5 req/s enforcement |
+| AssetCategory extensions | `Api/AssetCategoryExtensionsTests.cs` | 6 — ToDisplayName all 10, HasTransactions all 10, exactly 4 true, ToUrlSegment defaults, snake_case specials, valid regex |
+| CompactConsoleFormatter (zero coverage) | `Infrastructure/CompactConsoleFormatterTests.cs` | 8 — all 6 log level abbreviations, category short name extraction, no-dots category, message inclusion, exception details, null message, output format pattern |
+| ExcelStyles (zero coverage) | `Export/ExcelStylesTests.cs` | 12 — GetCurrencyFormat null/empty/€/$, constants, ApplyHeaderStyle bold/color/font/alignment, FinalizeSheet default/custom |
+| WorkbookExporter (actual class) | `Export/WorkbookExporterRealTests.cs` | 6 — calls all writers, error sheet on failure, all-fail creates info, no writers creates info, null context uses default, cancellation stops early |
+| ExportContext extras | Updated `Export/ExportContextTests.cs` | 4 — CurrencyFormat with/without symbol, DisplayCurrencySymbol default, BothNull+UseDisplayFalse |
+
+**Totals:** 240 tests (up from 134) — **106 new tests**, 9 new test files, 1 updated.
+
+**Key findings during audit:**
+- Existing `WorkbookExporterTests` tested ClosedXML primitives, not the `WorkbookExporter` class itself. New `WorkbookExporterRealTests` covers the actual class with mock `ISheetWriter` instances.
+- `TransactionsSheet.J1` header is "Transaction Category" (not "Category" as in the architecture column list) — discovered during test validation.
+- `ExcelStyles.ApplyHeaderStyle` uses `XLColor.FromArgb(0x4472C4)` without alpha channel — ClosedXML treats it differently from `0xFF4472C4`.
+- `RateLimiter` timing tests use tolerant assertions (±100ms) to avoid flakiness in CI.
+
+**Test patterns established:**
+- Sheet tests: mock `IFinaryApiClient`, create real `XLWorkbook` in-memory, assert cell values/formats.
+- `SetupEmpty*` helpers per test class to initialize all categories as empty before overriding specific ones.
+- Currency format assertions check `Contains("€")` rather than exact format strings for maintainability.
+- Error isolation: verify one category failure doesn't prevent others from writing.
+
