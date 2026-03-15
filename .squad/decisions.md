@@ -84,7 +84,7 @@ Add cookie/session persistence to skip the full 6-step Clerk auth on subsequent 
 2. **Two-tier auth flow** — Warm start (load cookie → `/tokens` → JWT) tried first. Cold start (full 6-step) as fallback on 401 or missing session.
 3. **Encrypted at rest** — DPAPI (`DataProtectionScope.CurrentUser`) on Windows. `IDataProtectionProvider` as cross-platform fallback.
 4. **Non-fatal** — Session store failures never block auth. Missing/corrupted store → cold start. Failed save → warning only.
-5. **Configurable** — `SessionStorePath` in `FinaryOptions` (default: `~/.finaryexport/session.dat`). `--clear-session` CLI flag forces cold start.
+5. **Configurable** — `SessionStorePath` in `FinaryOptions` (default: `~/.finaryexport/session.dat`). `clear-session` is a standalone CLI command that calls `ISessionStore.ClearSessionAsync()`.
 6. **Architecture doc updated** — `architecture.md` revised with Auth Module section, project structure, configuration, execution flow, error handling.
 
 **Rationale:** The `__client` cookie has ~90-day expiry and survives token refreshes. Persisting it eliminates 5 of 6 auth requests on every run after the first.

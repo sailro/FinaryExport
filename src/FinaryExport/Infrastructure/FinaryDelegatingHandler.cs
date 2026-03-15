@@ -66,6 +66,7 @@ public sealed class FinaryDelegatingHandler(
 		clone.Headers.TryAddWithoutValidation("Referer", "https://app.finary.com/");
 		clone.Headers.TryAddWithoutValidation("x-client-api-version", "2");
 		clone.Headers.TryAddWithoutValidation("x-finary-client-id", "webapp");
+		clone.Headers.TryAddWithoutValidation("Accept", "*/*");
 
 		if (original.Content is not null)
 			clone.Content = original.Content;

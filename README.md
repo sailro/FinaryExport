@@ -115,7 +115,7 @@ Individual security positions from investment accounts: **Account**, **Name**, *
 
 ### Transactions
 
-Buy/sell/income/expense records across checking, savings, investment, and credit accounts: **Category**, **Date**, **Name**, **Value**, **Type**, **Account**, **Institution**, **Native Currency**, **Commission**.
+Buy/sell/income/expense records across checking, savings, investment, and credit accounts: **Category**, **Date**, **Name**, **Value**, **Type**, **Account**, **Institution**, **Native Currency**, **Commission**, **Transaction Category**.
 
 > Note: Only 4 categories support transactions in the Finary API (checkings, savings, investments, credits). Real estate, cryptos, and others do not have transaction endpoints.
 

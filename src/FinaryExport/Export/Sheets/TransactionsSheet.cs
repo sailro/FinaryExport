@@ -26,7 +26,7 @@ public sealed class TransactionsSheet(ILogger<TransactionsSheet> logger) : IShee
 		ws.Cell("G1").Value = "Institution";
 		ws.Cell("H1").Value = "Native Currency";
 		ws.Cell("I1").Value = "Commission";
-		ws.Cell("J1").Value = "Category";
+		ws.Cell("J1").Value = "Transaction Category";
 		ExcelStyles.ApplyHeaderStyle(ws.Row(1));
 
 		var row = 2;

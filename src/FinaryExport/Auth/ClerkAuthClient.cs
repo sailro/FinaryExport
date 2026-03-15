@@ -1,10 +1,8 @@
 using System.Net;
 using System.Security.Authentication;
 using System.Text.Json;
-using FinaryExport.Configuration;
 using Loxifi.CurlImpersonate;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace FinaryExport.Auth;
 
@@ -13,13 +11,10 @@ namespace FinaryExport.Auth;
 public sealed class ClerkAuthClient(
 	ISessionStore sessionStore,
 	ICredentialPrompt credentialPrompt,
-	IOptions<FinaryOptions> options,
 	ILogger<ClerkAuthClient> logger)
 	: ITokenProvider, IDisposable
 {
 	private const string ClerkBase = "https://clerk.finary.com";
-
-	private readonly FinaryOptions _options = options.Value;
 
 	private volatile string _currentJwt = "";
 	private readonly List<Cookie> _activeCookies = [];

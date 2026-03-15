@@ -8,6 +8,18 @@
 - **Created:** 2026-03-12
 
 ## Learnings
+### Full Source Code Audit (2026-03-15)
+
+Performed a full audit of every .cs file in `src/FinaryExport/`. Found and fixed 5 issues:
+
+1. **Dead code removed**: `FinaryApiClient.TransactionCategories.cs` — `GetTransactionCategoriesAsync` was not on `IFinaryApiClient`, not called anywhere, and redundant since the `Transaction` model already has an inline `Category` property from the API response. Deleted the file.
+2. **Inconsistent default parameter**: `UnifiedFinaryApiClient.GetAssetListAsync` had `period = "1d"` vs the interface's `period = "all"`. Fixed to match interface. Callers going through the interface always got `"all"` anyway, but the mismatch was misleading.
+3. **Duplicate column header**: `TransactionsSheet` had two columns both named "Category" (A = asset category, J = transaction category). Renamed column J to "Transaction Category" for clarity.
+4. **Missing Accept header on retry**: `FinaryDelegatingHandler.CloneRequest` was missing the `Accept: */*` header when cloning requests for 401/429 retries. All other headers (Auth, Origin, Referer, x-client-api-version, x-finary-client-id) were present in the clone.
+5. **Unused DI parameter**: `ClerkAuthClient` constructor took `IOptions<FinaryOptions>` and stored it as `_options`, but never used it. Removed the parameter and field. Updated `ClerkAuthClientSkipTests` accordingly.
+
+Patterns confirmed clean: all `IFinaryApiClient` methods implemented in both `FinaryApiClient` and `UnifiedFinaryApiClient`. Per-category error isolation working correctly in all sheet writers. ExportContext/ResolveValue used consistently for monetary values. JSON SnakeCaseLower naming matches all model PascalCase properties. Auth warm/cold start flow is sound. TokenRefreshService shutdown is properly cooperative.
+
 ### Currency Header Rename & Value Resolution Audit (2026-03-15)
 
 Renamed "Currency" column header to "Native Currency" in **AccountsSheet** (column D) and **TransactionsSheet** (column H) to clarify this is the original account/transaction currency, not the display currency (which is already visible in amount cell number formats via `context.CurrencyFormat`). Fixed value resolution inconsistencies: **TransactionsSheet** was using `tx.Value ?? 0m` directly instead of `context.ResolveValue(tx.DisplayValue, tx.Value)` — now uses ResolveValue for consistency with AccountsSheet. **DividendsSheet** had the same issue: both Past and Upcoming dividend detail rows used `div.Amount ?? 0m` instead of `context.ResolveValue(div.DisplayAmount, div.Amount)` — fixed both. Summary fields (`AnnualIncome`, `PastIncome`, etc.) lack display variants in the API model and were left as-is. Commission on Transaction also has no display variant — left as-is.

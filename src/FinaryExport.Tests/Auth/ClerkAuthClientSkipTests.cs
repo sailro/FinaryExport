@@ -1,9 +1,7 @@
 using FinaryExport.Auth;
-using FinaryExport.Configuration;
 using FinaryExport.Tests.Helpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using Moq;
 
 namespace FinaryExport.Tests.Auth;
@@ -15,9 +13,8 @@ public sealed class ClerkAuthClientSkipTests
 	{
 		var store = new InMemorySessionStore();
 		var prompt = new Mock<ICredentialPrompt>();
-		var options = Options.Create(new FinaryOptions());
 		var logger = NullLogger<ClerkAuthClient>.Instance;
-		return new ClerkAuthClient(store, prompt.Object, options, logger);
+		return new ClerkAuthClient(store, prompt.Object, logger);
 	}
 
 	[Fact]

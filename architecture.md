@@ -1,7 +1,7 @@
 # FinaryExport — Architecture Document
 
 > **Author:** Rusty (Lead)
-> **Revised:** 2026-03-14 — updated to reflect current implementation
+> **Revised:** 2026-03-17 — updated to reflect current implementation
 > **Status:** Living document tracking current implementation state
 
 ---
@@ -48,9 +48,10 @@ src/FinaryExport/
 |   +-- IFinaryApiClient.cs             # API contract
 |   +-- FinaryApiClient.cs              # Partial class: core setup, org context, pagination
 |   +-- FinaryApiClient.Categories.cs   # Category-generic endpoints
-|   +-- FinaryApiClient.Portfolio.cs    # Portfolio, timeseries, dividends, allocations, fees
-|   +-- FinaryApiClient.Reference.cs    # Asset list, holdings accounts
+|   +-- FinaryApiClient.Portfolio.cs    # Portfolio, timeseries, dividends, allocations, fees, asset list
+|   +-- FinaryApiClient.Reference.cs    # Holdings accounts
 |   +-- FinaryApiClient.Transactions.cs # Transaction endpoints (paginated)
+|   +-- FinaryApiClient.TransactionCategories.cs # Transaction category list
 |   +-- UnifiedFinaryApiClient.cs       # Decorator: merges data across all profiles
 |   +-- RateLimiter.cs                  # Token-bucket, ~5 req/s
 |
@@ -97,7 +98,7 @@ src/FinaryExport/
     |   +-- SecurityInfo.cs
     |   +-- SecurityPosition.cs
     +-- Portfolio/                       # PortfolioSummary, TimeseriesData, DividendSummary (incl. DividendAssetInfo), AllocationData, AssetListEntry, FeeSummary
-    +-- Transactions/                   # Transaction model
+    +-- Transactions/                   # Transaction, TransactionCategory
     +-- User/
         +-- FinaryProfile.cs            # OrgId + MembershipId + ProfileName
         +-- Membership.cs
@@ -134,8 +135,6 @@ src/FinaryExport/
 
 Options:
 - `--output` — Output file path (default: `finary-export.xlsx`)
-- `--period` — Time period: `1d`, `1w`, `1m`, `3m`, `6m`, `1y`, `all` (default: `all`)
-- `--clear-session` — Force re-authentication (discard saved session)
 
 Flow:
 1. Build `IHost` with `ConfigureHost` (binds `FinaryOptions`, registers all services)
@@ -143,9 +142,10 @@ Flow:
 3. Call `GetAllProfilesAsync()` to enumerate memberships
 4. Loop over each profile:
    - `SetOrganizationContext(orgId, membershipId)`
-   - `ExportAsync(profilePath, api, new ExportContext { UseDisplayValues = true })`
+   - Detect display currency via `GetCurrentUserAsync()` → `UiConfiguration.DisplayCurrency.Symbol`
+   - `ExportAsync(profilePath, api, new ExportContext { UseDisplayValues = true, DisplayCurrencySymbol = symbol })`
 5. Create `UnifiedFinaryApiClient` wrapping `IFinaryApiClient`
-6. `ExportAsync(unifiedPath, unifiedApi, new ExportContext { UseDisplayValues = false })`
+6. `ExportAsync(unifiedPath, unifiedApi, new ExportContext { UseDisplayValues = false, DisplayCurrencySymbol = symbol })`
 7. Stop the host (shuts down `TokenRefreshService`)
 
 ### `clear-session`
@@ -236,6 +236,7 @@ Injects on every request:
 - `Referer: https://app.finary.com/`
 - `x-client-api-version: 2`
 - `x-finary-client-id: webapp`
+- `Accept: */*`
 
 Resilience:
 - **401 Unauthorized:** Refresh token, retry once
@@ -248,12 +249,13 @@ Token-bucket pattern using `SemaphoreSlim`. Enforces ~5 req/s (200ms minimum int
 
 ### FinaryApiClient
 
-Partial class split across 5 files:
-- **Core** (`FinaryApiClient.cs`): Constructor, org context management, generic `GetAsync<T>` with pagination, `GetCurrentUser`
-- **Categories** (`FinaryApiClient.Categories.cs`): `GetCategoryAccountsAsync`, `GetCategoryTimeseriesAsync`, `GetCategoryTransactionsAsync` — generic over `AssetCategory` enum
-- **Portfolio** (`FinaryApiClient.Portfolio.cs`): Portfolio summary, timeseries, dividends, geographical/sector allocation, fees
-- **Reference** (`FinaryApiClient.Reference.cs`): Asset list, holdings accounts
-- **Transactions** (`FinaryApiClient.Transactions.cs`): Paginated transaction retrieval
+Partial class split across 6 files:
+- **Core** (`FinaryApiClient.cs`): Constructor, org context management, generic `GetAsync<T>` with pagination, `GetCurrentUser`, `GetAllProfiles`
+- **Categories** (`FinaryApiClient.Categories.cs`): `GetCategoryAccountsAsync`, `GetCategoryTimeseriesAsync` — generic over `AssetCategory` enum
+- **Portfolio** (`FinaryApiClient.Portfolio.cs`): Portfolio summary, timeseries, dividends, geographical/sector allocation, fees, asset list
+- **Reference** (`FinaryApiClient.Reference.cs`): Holdings accounts
+- **Transactions** (`FinaryApiClient.Transactions.cs`): Paginated transaction retrieval by category
+- **TransactionCategories** (`FinaryApiClient.TransactionCategories.cs`): Transaction category list
 
 All methods use organization-scoped URLs: `/organizations/{orgId}/memberships/{membershipId}/...`
 
@@ -265,7 +267,7 @@ JSON deserialization uses `JsonSerializerOptions` with `JsonNamingPolicy.SnakeCa
 
 ### Per-Profile Export
 
-Finary supports multiple profiles (memberships within an organization). `GetAllProfilesAsync()` calls `GetCurrentUser()` then maps each membership to a `FinaryProfile(OrgId, MembershipId, ProfileName)`.
+Finary supports multiple profiles (memberships within an organization). `GetAllProfilesAsync()` calls `/users/me/organizations` to enumerate all organizations and their members, then maps each membership to a `FinaryProfile(OrgId, MembershipId, ProfileName)`.
 
 The export loop:
 ```
@@ -293,14 +295,16 @@ The unified export uses `ExportContext { UseDisplayValues = false }` — raw val
 public sealed record ExportContext
 {
     public bool UseDisplayValues { get; init; } = true;
-    public string Period { get; init; } = "all";
+    public string? DisplayCurrencySymbol { get; init; }
 
     public decimal ResolveValue(decimal? displayValue, decimal? rawValue)
         => (UseDisplayValues ? displayValue ?? rawValue : rawValue ?? displayValue) ?? 0m;
+
+    public string CurrencyFormat => ExcelStyles.GetCurrencyFormat(DisplayCurrencySymbol);
 }
 ```
 
-Sheet writers call `context.ResolveValue(account.DisplayBalance, account.Balance)` to pick the right value depending on whether this is a per-profile or unified export.
+Sheet writers call `context.ResolveValue(account.DisplayBalance, account.Balance)` to pick the right value depending on whether this is a per-profile or unified export. The `CurrencyFormat` property generates an Excel number format with the user's display currency symbol (e.g., `"€ "#,##0.00`).
 
 ---
 
@@ -316,7 +320,7 @@ Iterates all registered `ISheetWriter` implementations, calls `WriteAsync` on ea
 |-------|-------|-------------|
 | Portfolio Summary | `PortfolioSummarySheet` | `GetPortfolioAsync`, `GetPortfolioTimeseriesAsync` |
 | Accounts | `AccountsSheet` | `GetCategoryAccountsAsync` (all categories) |
-| Transactions | `TransactionsSheet` | `GetCategoryTransactionsAsync` (filtered by `HasTransactions()`: checkings, savings, investments, credits) |
+| Transactions | `TransactionsSheet` | `GetCategoryTransactionsAsync` (filtered by `HasTransactions()`: checkings, savings, investments, credits). Columns include asset category and transaction category. |
 | Dividends | `DividendsSheet` | `GetPortfolioDividendsAsync` |
 | Holdings | `HoldingsSheet` | `GetHoldingsAccountsAsync`, `GetAssetListAsync` |
 
@@ -333,10 +337,18 @@ public interface ISheetWriter
 
 `ExcelStyles` provides shared formatting constants and helpers:
 - Header row: bold, blue background (#4472C4), white text, centered
-- Currency: `#,##0.00`
+- Currency: `#,##0.00` (prefixed with display currency symbol when available, e.g., `"€ "#,##0.00`)
 - Percent: `0.00%`
 - Date: `yyyy-MM-dd`
 - Freeze top row, auto-fit columns
+
+### Currency Handling
+
+Before exporting each profile, `Program.cs` calls `DetectDisplayCurrencySymbolAsync` which:
+1. Reads the user's display currency from `GetCurrentUserAsync()` → `UiConfiguration.DisplayCurrency.Symbol`
+2. Falls back to scanning account currencies if the user profile doesn't provide one
+
+The detected symbol (e.g., `€`, `$`, `£`) is passed to `ExportContext.DisplayCurrencySymbol`, which feeds into `ExcelStyles.GetCurrencyFormat()` to generate Excel number formats with the correct currency prefix. All monetary columns across all sheets use this format.
 
 ---
 
@@ -349,10 +361,10 @@ Bound from `appsettings.json` section `"Finary"`:
 ```csharp
 public sealed class FinaryOptions
 {
+    public const string SectionName = "Finary";
+
     public string OutputPath { get; set; } = "finary-export.xlsx";
-    public string Period { get; set; } = "all";
     public string? SessionStorePath { get; set; }
-    public bool ClearSession { get; set; }
 }
 ```
 
@@ -369,13 +381,13 @@ public sealed class FinaryOptions
   "Logging": {
     "LogLevel": {
       "Default": "Information",
-      "System.Net.Http.HttpClient": "Warning"
+      "System.Net.Http": "Warning"
     }
   }
 }
 ```
 
-CLI options (`--output`, `--period`, `--clear-session`) override `appsettings.json` values.
+CLI option `--output` overrides the `appsettings.json` value.
 
 ---
 
@@ -430,14 +442,18 @@ Custom `ConsoleFormatter` for single-line log output. Registered when configurin
 | `AssetListEntry` | `Models.Portfolio` | Top assets by value |
 | `FeeSummary` | `Models.Portfolio` | Fee analysis data |
 | `Transaction` | `Models.Transactions` | Buy/sell/income/expense record |
+| `TransactionCategory` | `Models.Transactions` | Category with subcategories, color, icon |
 | `FinaryProfile` | `Models.User` | OrgId + MembershipId + ProfileName |
-| `UserProfile` | `Models.User` | User identity and membership list |
-| `ApiEnvelope<T>` | `Models` | Generic `{ result: T }` response wrapper |
+| `UserProfile` | `Models.User` | User identity, membership list, subscription, UI config |
+| `UiConfiguration` | `Models.User` | Display preferences including display currency |
+| `DisplayCurrencyInfo` | `Models.User` | Currency code + symbol for display currency |
+| `FinaryResponse<T>` | `Models` | Generic `{ result: T, message, error }` response wrapper |
+| `FinaryError` | `Models` | Error code + message from API |
 | `AssetCategory` | `Models` | Enum of asset categories + extension methods (`HasTransactions`, `ToDisplayName`, `ToUrlSegment`) |
 
 ### API Response Pattern
 
-All Finary API responses wrap data in `{ "result": ... }`. `ApiEnvelope<T>` handles deserialization. Pagination uses `?page=N` parameters; `FinaryApiClient` loops until an empty page is returned.
+All Finary API responses wrap data in `{ "result": ..., "message": ..., "error": ... }`. `FinaryResponse<T>` handles deserialization. Pagination uses `?page=N&per_page=N` parameters; `FinaryApiClient` loops until a page returns fewer items than `per_page`.
 
 ---
 
@@ -450,8 +466,10 @@ Key decisions documented in `.squad/decisions.md`:
 | D-curl | CurlImpersonate over raw HttpClient | Cloudflare blocks standard .NET TLS fingerprints |
 | D-multiprofile | Export all profiles automatically | User has multiple memberships; one-by-one is tedious |
 | D-unified | Unified workbook aggregating all profiles | Cross-profile portfolio view for analysis |
+| D13 | Session persistence via DPAPI | Skip cold auth on subsequent runs; `__client` cookie lasts ~90 days |
 | D-pii | Synthetic data only in docs and tests | No real names, IBANs, or addresses in the repo |
 | D-ratelimit | 5 req/s token bucket + 429 backoff | Conservative ceiling above observed browser rate |
+| D-logging | CompactConsoleFormatter | Single-line log output with short level codes |
 | D-noxml | No XML doc comments | Regular `//` comments only — keeps code compact |
 
 ---

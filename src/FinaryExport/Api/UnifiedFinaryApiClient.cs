@@ -245,7 +245,7 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
 
 	// ── Aggregated: asset list merged by holding ID ──
 
-	public async Task<List<AssetListEntry>> GetAssetListAsync(string period = "1d", CancellationToken ct = default)
+	public async Task<List<AssetListEntry>> GetAssetListAsync(string period = "all", CancellationToken ct = default)
 	{
 		var merged = new Dictionary<long, AssetListEntry>();
 
