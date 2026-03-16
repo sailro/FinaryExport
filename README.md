@@ -1,4 +1,4 @@
-# FinaryExport
+# FinaryExport (and MCP Server)
 
 A .NET command-line tool that exports your [Finary](https://finary.com) wealth management data to Excel (`.xlsx`) files.
 
