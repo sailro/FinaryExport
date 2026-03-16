@@ -16,6 +16,7 @@
 | Linus | Backend Dev | `.squad/agents/linus/charter.md` | 🔧 Active |
 | Livingston | Protocol Analyst | `.squad/agents/livingston/charter.md` | 🔒 Active |
 | Basher | Tester | `.squad/agents/basher/charter.md` | 🧪 Active |
+| Saul | MCP Specialist | `.squad/agents/saul/charter.md` | ⚙️ Active |
 | Scribe | Session Logger | `.squad/agents/scribe/charter.md` | 📋 Active |
 | Ralph | Work Monitor | — | 🔄 Monitor |
 

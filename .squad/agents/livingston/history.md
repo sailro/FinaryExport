@@ -63,3 +63,16 @@
 - **Fixed stale gitleaks fingerprint:** Added `56c24dd...` commit fingerprint to `.gitleaksignore` for the synthetic test JWT in ApiFixtures.cs. Gitleaks now reports 0 leaks.
 - **No git history scrubbing needed.** No CRITICAL/HIGH findings anywhere in history.
 - **Lesson:** Proactive .gitignore coverage for log files and env files is cheap insurance. Even when no `.env` or `log.txt` exists today, a single careless `git add .` in the future could expose them.
+
+### 2026-03-14 — MCP Tool Catalog Complete
+
+- **Scope:** Full `IFinaryApiClient` interface (15 methods), all model types (37 records/enums), wire-observed endpoints from `api-analysis.md`.
+- **Key files analyzed:** `src/FinaryExport/Api/IFinaryApiClient.cs`, all `FinaryApiClient.*.cs` partials, `UnifiedFinaryApiClient.cs`, all models in `Models/{Accounts,Portfolio,Transactions,User}/`.
+- **Result:** 15 implemented methods → 15 MCP tools (all read-only GET). Zero mutations in the client.
+- **Wire-observed but not implemented:** ~20 additional endpoints cataloged, 8 flagged as high-value future candidates (transaction search, cashflow, recurring payments, financial projections).
+- **Pagination:** Handled internally by `GetPaginatedListAsync<T>`. Only `GetCategoryTransactionsAsync` uses it (page-based, pageSize=200). MCP tools should NOT expose pagination params.
+- **Context dependency:** All data endpoints require `org_id`+`membership_id` set first. MCP needs bootstrap sequence: `finary_get_org_context` → then any data tool.
+- **AssetCategory enum:** 10 values, but only 4 support transactions (`HasTransactions()`). MCP tool descriptions must note this constraint.
+- **`UnifiedFinaryApiClient`:** Decorator that aggregates across all memberships transparently. MCP server can swap it in for unified mode without changing tool definitions.
+- **Only observed mutation:** `PUT /users/me/ui_configuration` — flagged as DO NOT EXPOSE.
+- **Output:** `.squad/artifacts/mcp-tool-catalog.md`

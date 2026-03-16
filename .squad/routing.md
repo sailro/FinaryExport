@@ -11,6 +11,7 @@ How to decide who handles what.
 | Auth implementation | Linus | Login flow, token management, credential handling |
 | Traffic analysis | Livingston | HTTP capture analysis, endpoint discovery, auth flow mapping |
 | API reverse engineering | Livingston | Request/response schemas, header analysis, protocol docs |
+| MCP server implementation | Saul | MCP tool definitions, transport, SDK wiring, tool schemas |
 | Code review | Rusty | Review PRs, check quality, suggest improvements |
 | Testing | Basher | Write tests, find edge cases, verify fixes |
 | Scope & priorities | Rusty | What to build next, trade-offs, decisions |

@@ -21,6 +21,22 @@
 **Last Updated:** 2026-03-15 reassessment. Build: 0 warnings, 0 errors. All decisions filed in `.squad/decisions/decisions.md`.
 
 ## Learnings
+### FinaryExport.Core Extraction (2026-03-17)
+
+Extracted shared library `FinaryExport.Core` from the CLI project per Rusty's MCP architecture proposal (§2-§5). Pure refactoring — no behavior changes, all 240 tests pass.
+
+**What moved to Core:** Api/, Auth/ (minus ConsoleCredentialPrompt), Models/, Infrastructure/, Configuration/. Core csproj uses `RootNamespace=FinaryExport` — zero namespace changes anywhere.
+
+**Key patterns:**
+- `AddFinaryCore()` in Core registers shared services (curl, auth, rate limiter, HTTP client, API client) but NOT `ICredentialPrompt` and NOT export services. Host projects register their own `ICredentialPrompt` implementation and any host-specific services.
+- `ConsoleCredentialPrompt` lives at `src/FinaryExport/ConsoleCredentialPrompt.cs` (CLI project root, not in Auth/).
+- Core packages: Loxifi.CurlImpersonate, Microsoft.Extensions.Hosting, Microsoft.Extensions.Http, System.Security.Cryptography.ProtectedData.
+- CLI keeps only: ClosedXML, System.CommandLine + ProjectReference to Core.
+- `Directory.Packages.props` unchanged — centralized versioning works for both projects.
+- Solution file: `FinaryExport.slnx` now has Core in `/src/` folder.
+- Test project references both Core and CLI.
+- Used `git mv` for all file moves to preserve history.
+
 ### Full Source Code Audit (2026-03-15)
 
 Performed a full audit of every .cs file in `src/FinaryExport/`. Found and fixed 5 issues:

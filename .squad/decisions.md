@@ -200,6 +200,61 @@ No XML doc comments (`///`). Use regular comments (`//`) only, sparingly, for no
 
 ---
 
+### 2026-03-16T08:45:00Z: MCP Architecture & Implementation (D-mcp-complete)
+
+**Authors:** Rusty (architecture), Livingston (API catalog), Linus (Core extraction), Saul (MCP server)  
+**Scope:** Solution structure, MCP server implementation, Core library extraction
+
+**Status:** ✅ **COMPLETE** — All four agents delivered on schedule. Build: 0 errors, 0 warnings. Tests: 240/240 passing.
+
+**Key Decisions:**
+
+1. **Extract `FinaryExport.Core` shared library** — ClassLibrary with RootNamespace=FinaryExport (zero namespace changes). Contains all models, API client, auth, infrastructure.
+
+2. **Dual-project solution:** `FinaryExport.Core` (shared) + `FinaryExport` (CLI) + `FinaryExport.Mcp` (new MCP server).
+
+3. **15 MCP tools across 7 tool classes** — UserTools, PortfolioTools, AccountTools, TransactionTools, DividendTools, HoldingsTools, AllocationTools. All read-only (GET).
+
+4. **Stdio transport with ModelContextProtocol 1.1.0** — standard for VS Code Copilot, Claude Desktop.
+
+5. **Session-only auth per user directive** — MCP reuses `~/.finaryexport/session.dat` from CLI. No cold auth, no env var credentials, no Otp.NET.
+
+6. **Bootstrap required** — `finary_get_org_context` must be called before any data tool to set org/membership context.
+
+7. **Per-category error isolation** — multi-category tools aggregate with isolated error handling per category.
+
+**Details:**
+
+- **Core extraction:** 240 tests passing. All dependencies preserved. Zero refactoring needed in consumer code.
+- **MCP server:** `Program.cs` uses `Host.CreateApplicationBuilder` + `AddFinaryCore()` + `AddMcpServer().WithStdioServerTransport().WithToolsFromAssembly()`.
+- **Tool catalog:** 15 tools → 37 model types. Pagination internal (transparent to MCP). Rate limiting at infrastructure layer.
+- **Auth:** `McpCredentialPrompt` throws if `session.dat` doesn't exist (user must run CLI first). `TokenRefreshService` keeps JWT alive during server lifetime.
+
+**Artifacts:**
+- `.squad/decisions/inbox/rusty-mcp-architecture.md` (full proposal, 25.7 KB)
+- `.squad/artifacts/mcp-tool-catalog.md` (tool + model inventory, 3.2 KB)
+- `.squad/orchestration-log/2026-03-16T0845-{rusty,livingston,linus,saul}.md` (per-agent logs)
+- `.squad/log/2026-03-16T0845-mcp-server.md` (session summary)
+
+**Implementation Notes:**
+- Service registration split: `AddFinaryCore()` in Core (auth, API, config) — zero mention of export/CLI/MCP dependencies. Each consumer registers own `ICredentialPrompt` + `ISessionStore`.
+- Tool names are snake_case. Descriptions are LLM-facing (concise, specific, no jargon).
+- Console logging redirected to stderr via `ConsoleLoggerOptions.LogToStandardErrorThreshold = LogLevel.Trace` (stdout reserved for MCP protocol).
+
+**Open Questions (resolved by user directive):**
+- ✅ Session reuse — YES, shared `session.dat` across CLI and MCP per copilot-directive-20260316T084500Z
+- ✅ Otp.NET — NO, removed from proposal. Session-only auth removes TOTP/env-var credential need.
+
+---
+
+### 2026-03-16T08:45:00Z: User directive — MCP auth via shared session
+
+**By:** the user (via Copilot)  
+**What:** The MCP server must reuse the session.dat created by the CLI exporter. No cold auth / no env var credentials / no TOTP in the MCP server. If no session.dat exists, explain that a first export run is needed to initialize it.  
+**Why:** User request — simplifies MCP auth, removes complexity, single auth source via CLI.
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus

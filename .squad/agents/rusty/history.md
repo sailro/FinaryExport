@@ -40,8 +40,47 @@
 - **2026-03-14 — Cross-platform scoping (rusty-cross-platform).** Analyzed two Windows-only blockers: DPAPI session encryption and CurlImpersonate TLS bypass. Key findings: (1) DPAPI → `Microsoft.AspNetCore.DataProtection` is a clean swap behind existing `ISessionStore` interface — Small effort. (2) `Loxifi.CurlImpersonate` 1.1.0 ships `linux-x64` native binary (`libcurl-impersonate.so`) despite README claiming Windows-only — needs verification but likely works. macOS has zero native binaries and no build path — Hard blocker. Recommended minimum viable path: Windows + Linux x64, ~1 day total work. macOS deferred. Scoping doc at `.squad/decisions/inbox/rusty-cross-platform.md`.
 - **2026-03-14 — Documentation audit.** Audited README.md, architecture.md, api-analysis.md against source code. Key drift found and fixed: (1) CLI options had stale `--locale` (removed) and wrong period values (`ytd` → `1d/3m/6m`). (2) Package versions were outdated — ClosedXML 0.104.2→0.105.0, Microsoft.Extensions.* 9.0.4→10.0.5, System.CommandLine 2.0.0-beta4→2.0.5. (3) `dotnet run` commands missing `--project src/FinaryExport`. (4) FinaryOptions showed removed `Locale` property. (5) Architecture missing Directory.Build.props/Directory.Packages.props, xUnit v3, DividendAssetInfo, HasTransactions() filtering, SetAction API. (6) Models/Auth folder was listed with content but is empty. (7) Short option aliases `-o`/`-p` documented but don't exist in code.
 - **2026-03-17 — Documentation audit #2.** Full reassessment of all docs against every source file. Key drift found and fixed: (1) `--period` and `--clear-session` options listed on export command but don't exist — `--output` is the only option; `clear-session` is a standalone command. (2) FinaryOptions showed `Period` and `ClearSession` properties that were removed. (3) ExportContext showed `Period` property — replaced with actual `DisplayCurrencySymbol` and `CurrencyFormat`. (4) Architecture said `ApiEnvelope<T>` but code uses `FinaryResponse<T>` + `FinaryError`. (5) Missing `FinaryApiClient.TransactionCategories.cs` from project structure and partial class list. (6) Partial class count was 5, now 6. `GetAssetListAsync` was listed under Reference but lives in Portfolio. (7) Currency handling feature (DetectDisplayCurrencySymbolAsync, UiConfiguration, ExcelStyles.GetCurrencyFormat) completely undocumented. (8) TransactionsSheet has 10 columns (including transaction category) but README listed 9. (9) appsettings.json logging key was `System.Net.Http.HttpClient` in docs but `System.Net.Http` in code. (10) D13 decision said `--clear-session` is a CLI flag; corrected to standalone command. (11) api-analysis.md implementation notes updated with all actually-used endpoints including /users/me, /organizations, /asset_list, /transaction_categories, and allocation/fees endpoints. (12) Data model table updated with TransactionCategory, UiConfiguration, DisplayCurrencyInfo, FinaryError. (13) Design decisions table was missing D13 and D-logging.
+- **2026-03-17 — MCP architecture proposal (D-mcp).** Designed architecture for adding MCP server to the solution. Key decisions: (1) Extract `FinaryExport.Core` shared library — keeps `RootNamespace=FinaryExport` so zero using-statement changes. (2) MCP project (`FinaryExport.Mcp`) uses `ModelContextProtocol` 1.1.0 with stdio transport. (3) 15 read-only MCP tools across 7 tool classes: portfolio, accounts, transactions, dividends, holdings, allocations, user. (4) `EnvCredentialPrompt` for non-interactive auth (env vars + Otp.NET for TOTP generation). (5) Lazy auth on first tool call — same `GetTokenAsync()` fallback pattern. (6) `ServiceCollectionExtensions` split: `AddFinaryCore()` in Core (no export/CLI deps), CLI and MCP each register their own `ICredentialPrompt` + `ISessionStore`. (7) Shared session store at `~/.finaryexport/session.dat` — single auth across CLI and MCP. Full proposal at `.squad/decisions/inbox/rusty-mcp-architecture.md`.
+- **Key file paths (MCP):** `.squad/decisions/inbox/rusty-mcp-architecture.md` (full proposal with project files, tool catalog, implementation order)
 
 ## Cross-Agent Updates
+
+### MCP Server Implementation Session (2026-03-16T08:45Z)
+
+**Session Type:** Multi-agent parallel sprint — architecture, extraction, and implementation  
+**Participants:** Rusty (Lead, architecture), Livingston (Protocol Analyst, API catalog), Linus (Backend Dev, Core extraction), Saul (MCP Specialist, server implementation)  
+**Outcome:** ✅ Success — All 4 deliverables on schedule. Build: 0 errors, 0 warnings. Tests: 240/240 passing.
+
+**Key Achievements by Agent:**
+
+1. **Rusty (Architecture):** Designed complete MCP server architecture. Key decisions: dual-project structure (Core library + MCP server), stdio transport, session-only auth per user directive (no env var creds, no Otp.NET), 15 read-only tools, bootstrap requirement, per-category error isolation. Proposal documented with full implementation order and risk mitigation.
+
+2. **Livingston (API Catalog):** Cataloged all 15 `IFinaryApiClient` methods as MCP tools, mapped 37 model types, documented constraints (bootstrap, category transaction filtering, internal pagination), flagged 8 high-value future endpoints, confirmed zero mutations in current surface.
+
+3. **Linus (Core Extraction):** Successfully extracted `FinaryExport.Core` class library. RootNamespace=FinaryExport — zero namespace changes in consumer code. All models, API client, auth, infrastructure moved. Core dependencies (CurlImpersonate, Hosting, Http, DPAPI) preserved. CLI + MCP both reference Core. Build: clean. Tests: 240/240 passing.
+
+4. **Saul (MCP Implementation):** Built `FinaryExport.Mcp` with 15 tools across 7 classes (UserTools, PortfolioTools, AccountTools, TransactionTools, DividendTools, HoldingsTools, AllocationTools). Session-only auth via `McpCredentialPrompt` (throws if no session.dat). Stdio transport via `ModelContextProtocol` 1.1.0. Console logging redirected to stderr. Build: clean. Tests: 240/240 passing.
+
+**User Directive Integration:**
+- MCP reuses `~/.finaryexport/session.dat` from CLI
+- No cold auth in MCP server
+- No env var credentials in MCP (per directive)
+- No Otp.NET dependency (removed from proposal after directive)
+- Single session source simplifies auth lifecycle
+
+**Orchestration:**
+- All agents executed in parallel
+- No blockers — Core extraction completed before MCP implementation began
+- Clear interface boundaries: Core exposes `AddFinaryCore()`, consumers register own credential/session handlers
+- Tool discovery via reflection (`WithToolsFromAssembly()`)
+
+**Impact on Documentation:**
+- Merged 4 inbox decision files into decisions.md (deduplicated)
+- Updated agents' histories with cross-team context
+- Session log written: `.squad/log/2026-03-16T0845-mcp-server.md`
+- Per-agent orchestration logs written: `.squad/orchestration-log/2026-03-16T0845-{rusty,livingston,linus,saul}.md`
+
+**Team Confidence:** High — clean architecture, zero test regressions, user directive fully integrated, ready for production deployment.
 
 ### Full Project Reassessment Session (2026-03-15T21:21Z)
 
