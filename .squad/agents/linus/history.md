@@ -438,3 +438,17 @@ Finary uses Clerk authentication with mandatory TOTP 2FA. Auth flow is 6-step pr
 - Basher's new tests cover areas touched by your parameter alignment work
 - All agents verified clean build state together
 
+
+### README MCP Section Rewrite (2026-03-17)
+
+Rewrote the MCP Server section of README.md from developer-focused (raw tool names, API steps) to user-focused (natural language conversation examples).
+
+**What changed:**
+- Replaced `get_profiles` / `set_active_profile` step lists with plain English: "Switch to my daughter's profile"
+- Added ~15 real-life conversation examples grouped by capability (portfolio, accounts, transactions, dividends, allocation, multi-profile)
+- Simplified auth explanation: "The assistant will prompt you for email, password, and TOTP" instead of explaining MCP Elicitation protocol internals
+- Moved the 16-tool reference table into a collapsible `<details>` block — still available for developers but not front-and-center
+- Kept the JSON config snippet (users actually need that) and the published-exe tip
+- No UserSecrets references found — clean
+
+**Key principle:** README readers are users who want to talk to their AI assistant about their portfolio. They don't care about `get_portfolio_summary` — they care about "What's my total portfolio value?" Write for that person.

@@ -132,15 +132,49 @@ The tool discovers all Finary profiles (personal + organization memberships) and
 - One workbook per profile: `finary-export-{name}.xlsx` (ownership-adjusted values)
 - One unified workbook: `finary-export-unified.xlsx` (aggregated raw values across all profiles)
 
-## MCP Server
+## MCP Server — Talk to Your Portfolio
 
-FinaryExport includes an [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that exposes your Finary data as tools for AI assistants. This lets you query your portfolio, accounts, transactions, dividends, and more directly from Copilot, Claude Desktop, or any MCP-compatible client.
+FinaryExport includes an [MCP](https://modelcontextprotocol.io) server that lets you ask questions about your Finary data in plain language from any AI assistant — GitHub Copilot, Claude Desktop, or any MCP-compatible client. No API knowledge needed. Just ask.
 
-### Configuration
+### What You Can Do
 
-Add the following entry to your MCP configuration file:
+Here are some things you can say to your AI assistant once the server is set up:
 
-- **GitHub Copilot CLI / VS Code:** `~/.copilot/mcp-config.json` (or `.vscode/mcp.json` in your workspace)
+**Portfolio overview**
+> "What's my total portfolio value?"
+> "How has my portfolio performed over the last 6 months?"
+> "Give me a breakdown of fees across all my accounts"
+
+**Accounts & holdings**
+> "Show me all my investment accounts"
+> "What accounts does Alice have?"
+> "List my holdings with their current P&L"
+> "What are my individual positions worth right now?"
+
+**Transactions**
+> "Show me all transactions for the last month"
+> "What buys and sells did I make this year in my brokerage account?"
+
+**Dividends**
+> "Show me the dividends I'll receive this year"
+> "What was my dividend income last year?"
+
+**Allocation**
+> "How are my investments allocated by sector?"
+> "Show me my geographical allocation"
+
+**Multi-profile (family accounts)**
+> "Switch to my daughter's profile and show me her transactions"
+> "What profiles are available?"
+> "Switch to the kids' account"
+
+The AI assistant figures out which data to fetch — you just describe what you want to know.
+
+### Setup
+
+Add this to your MCP configuration file and restart your client:
+
+- **GitHub Copilot (CLI or VS Code):** `~/.copilot/mcp-config.json` or `.vscode/mcp.json`
 - **Claude Desktop:** `%APPDATA%\Claude\claude_desktop_config.json`
 
 ```json
@@ -155,52 +189,51 @@ Add the following entry to your MCP configuration file:
 }
 ```
 
-> **Tip:** Replace the `args` with the path to a published executable if you prefer not to use `dotnet run`.
+> **Tip:** You can replace `dotnet run --project ...` with the path to a published executable for faster startup.
 
 ### Authentication
 
-The MCP server authenticates using **MCP Elicitation** — a protocol feature that lets the server prompt the AI client for user input. On first use (when no cached session exists), the server asks for your Finary email, password, and TOTP code via an elicitation form. After successful authentication, the session is encrypted with DPAPI and persisted to:
+The first time you use a Finary tool, the assistant will prompt you for your **email**, **password**, and **TOTP code** (if you have 2FA enabled). Your credentials are used once to log in and are never saved. The session token is encrypted with DPAPI and stored locally at `~/.finaryexport/session.dat`, so you won't need to log in again until the session expires.
 
-```
-~/.finaryexport/session.dat
-```
+If you've already used the CLI exporter, the MCP server picks up your existing session automatically — no extra login required.
 
-This is the same session file used by the CLI exporter. If you've already run the CLI and authenticated, the MCP server reuses that session automatically — no re-authentication needed.
+> **Note:** If your MCP client doesn't support interactive prompts (elicitation), run the CLI exporter once first (`dotnet run --project src/FinaryExport -- export`) to create the session file.
 
-If your MCP client doesn't support elicitation, run the CLI exporter first (`dotnet run --project src/FinaryExport -- export`) to create the session file, then start the MCP server.
+### Multi-Profile
 
-### Multi-Profile Support
+If you have a family account with multiple profiles (e.g., personal + kids), just ask the assistant to switch:
 
-If you have multiple Finary profiles (personal + organization memberships), the server auto-initializes with your default profile. To switch profiles:
+> "Switch to my daughter's profile"
 
-1. Call **`get_profiles`** to list all available profiles with their `org_id` and `membership_id`
-2. Call **`set_active_profile`** with the desired `org_id` and `membership_id`
-3. All subsequent tool calls use the selected profile
+The assistant discovers all your available profiles automatically. All subsequent questions use the selected profile until you switch again.
 
-### Available Tools
+### Tool Reference
 
-The MCP server exposes 16 read-only tools:
+<details>
+<summary>Available tools (for developers and advanced users)</summary>
 
-| Tool | Description |
+The server exposes 16 read-only tools. Most accept an optional `period` parameter (`all`, `1d`, `1w`, `1m`, `3m`, `6m`, `1y`, `5y`).
+
+| Tool | What it does |
 |------|-------------|
-| `get_user_profile` | Get the authenticated user's profile (name, email, subscription, display currency) |
-| `get_profiles` | List all available profiles (personal + organization memberships) |
-| `set_active_profile` | Switch the active profile for subsequent queries |
-| `get_portfolio_summary` | Get total portfolio valuation with gross/net values and period performance |
-| `get_portfolio_timeseries` | Get historical portfolio value over time (for charting/trends) |
-| `get_portfolio_fees` | Get fee analysis: annual fees, cumulated fees, potential savings |
-| `get_accounts` | Get all accounts for a specific asset category |
-| `get_all_accounts` | Get accounts across all asset categories in a single call |
-| `get_category_timeseries` | Get historical value timeseries for a specific asset category |
-| `get_transactions` | Get transactions for a category (checkings, savings, investments, credits only) |
-| `get_all_transactions` | Get transactions across all transaction-capable categories |
-| `get_holdings` | Get all holdings accounts with security positions and balances |
-| `get_asset_list` | Get flat list of all individual positions with current value and P&L |
-| `get_dividends` | Get dividend income summary: annual income, yield, past and upcoming dividends |
-| `get_geographical_allocation` | Get portfolio allocation by geographical region |
-| `get_sector_allocation` | Get portfolio allocation by economic sector |
+| `get_user_profile` | Authenticated user's profile info (name, email, currency) |
+| `get_profiles` | Lists all available profiles (personal + org memberships) |
+| `set_active_profile` | Switches the active profile for subsequent queries |
+| `get_portfolio_summary` | Total portfolio valuation, gross/net, period performance |
+| `get_portfolio_timeseries` | Historical portfolio value over time |
+| `get_portfolio_fees` | Fee analysis: annual, cumulated, potential savings |
+| `get_accounts` | Accounts for a specific asset category |
+| `get_all_accounts` | Accounts across all asset categories |
+| `get_category_timeseries` | Historical value for a specific category |
+| `get_transactions` | Transactions for a category (checkings, savings, investments, credits) |
+| `get_all_transactions` | Transactions across all supported categories |
+| `get_holdings` | Investment holdings with security positions and balances |
+| `get_asset_list` | Flat list of all positions with current value and P&L |
+| `get_dividends` | Dividend summary: annual income, yield, past and upcoming |
+| `get_geographical_allocation` | Portfolio allocation by region |
+| `get_sector_allocation` | Portfolio allocation by economic sector |
 
-Most tools accept an optional `period` parameter: `all`, `1d`, `1w`, `1m`, `3m`, `6m`, `1y`, `5y`.
+</details>
 
 ## License
 
