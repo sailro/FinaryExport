@@ -683,8 +683,8 @@ Verified: `session.dat`, `*.xlsx`, `*.har`, `state.json`, `.env`, `log.txt`, `ap
 #### 🟡 WARNING — D-pii Violations Fixed
 
 Found and fixed 3 instances of real name in tracked squad files:
-1. `.squad/agents/saul/history.md:7` — "**Owner:** the user" → "the user"
-2. `.squad/decisions.md:252` — "**By:** the user" → "the user"
+1. `.squad/agents/saul/history.md:7` — "**Owner:** [real name]" → "the user"
+2. `.squad/decisions.md:252` — "**By:** [real name]" → "the user"
 3. `.squad/decisions/decisions.md:5` — "**By:** Sebastien" → "the user"
 
 These violated D-pii ("squad files refer to 'the user' — never real names"). All three have been corrected.
