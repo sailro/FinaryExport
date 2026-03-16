@@ -136,6 +136,8 @@ The tool discovers all Finary profiles (personal + organization memberships) and
 
 FinaryExport includes an [MCP](https://modelcontextprotocol.io) server that lets you ask questions about your Finary data in plain language from any AI assistant — GitHub Copilot, Claude Desktop, or any MCP-compatible client. No API knowledge needed. Just ask.
 
+**Important:** The MCP server queries the Finary API **live** — it does NOT read from previously exported xlsx files. Every question gets fresh, real-time data. The server shares the same Core library (authentication, API client, models) as the CLI exporter but operates independently; you don't need to run an export first. Think of it this way: the CLI exporter produces xlsx snapshots, while the MCP server provides interactive, on-demand access to the same data.
+
 ### What You Can Do
 
 Here are some things you can say to your AI assistant once the server is set up:
