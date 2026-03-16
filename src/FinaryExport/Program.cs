@@ -193,8 +193,7 @@ static void ConfigureHost(HostApplicationBuilder builder, string? output, bool c
 {
 	builder.Configuration
 		.AddJsonFile("appsettings.json", optional: true)
-		.AddEnvironmentVariables()
-		.AddUserSecrets<Program>(optional: true);
+		.AddEnvironmentVariables();
 
 	// Use compact single-line log format
 	builder.Logging.AddConsoleFormatter<
@@ -265,5 +264,4 @@ static string SanitizeFileName(string name)
 	return sanitized.Trim().ToLowerInvariant().Replace(' ', '-');
 }
 
-// Marker type for user secrets
 public partial class Program;

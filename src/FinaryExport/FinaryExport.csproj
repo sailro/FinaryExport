@@ -3,7 +3,6 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <RootNamespace>FinaryExport</RootNamespace>
-    <UserSecretsId>finary-export-secrets</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

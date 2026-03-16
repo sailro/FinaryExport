@@ -3,7 +3,6 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <RootNamespace>FinaryExport.Mcp</RootNamespace>
-    <UserSecretsId>finary-mcp-secrets</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
