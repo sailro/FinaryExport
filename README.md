@@ -147,7 +147,7 @@ Here are some things you can say to your AI assistant once the server is set up:
 
 **Accounts & holdings**
 > "Show me all my investment accounts"
-> "What accounts does Alice have?"
+> "What accounts does my daughter have?"
 > "List my holdings with their current P&L"
 > "What are my individual positions worth right now?"
 
