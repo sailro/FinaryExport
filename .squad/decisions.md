@@ -45,11 +45,12 @@ The per-category try/catch in `TransactionsSheet` is retained as a safety net fo
 
 **Author:** Rusty (Lead)  
 **Scope:** Entire project  
+**Status:** ⚠️ Partially superseded — "single project" is now multi-project (Core + CLI + MCP per D-mcp-complete)
 
 Architecture document: `architecture.md`
 
 **Key Decisions:**
-1. **Single project** — namespace separation, not multi-project. This is a CLI tool.
+1. ~~**Single project** — namespace separation, not multi-project.~~ **Superseded:** Solution now has 3 projects (FinaryExport.Core, FinaryExport, FinaryExport.Mcp) per D-mcp-complete. Core uses `RootNamespace=FinaryExport` to preserve zero-namespace-change extraction.
 2. **ClosedXML** for xlsx — MIT, active. EPPlus rejected (commercial).
 3. **No Polly** — retry logic hand-rolled. Too simple to justify a dependency.
 4. **`ITokenProvider`** — sole auth abstraction. Nothing outside Auth/ knows about Clerk.
@@ -57,7 +58,7 @@ Architecture document: `architecture.md`
 6. **`record` types, `decimal` for money, STJ source generators, `SnakeCaseLower`.**
 7. **Per-category error isolation** — one failing category cannot kill the export.
 8. **`PeriodicTimer` token refresh** as `IHostedService` (50s interval).
-9. **Credentials via env vars / user secrets only.** Never in appsettings.json.
+9. ~~**Credentials via env vars / user secrets only.**~~ **Superseded:** Credentials are entered interactively via `ConsoleCredentialPrompt` (CLI) or `McpCredentialPrompt` (MCP Elicitation). No env vars, no user secrets.
 10. **Generic host** (`Host.CreateApplicationBuilder`) for DI, config, logging.
 
 **Impact:** All team members implementing code follow this architecture. Linus builds from here.
@@ -217,7 +218,7 @@ No XML doc comments (`///`). Use regular comments (`//`) only, sparingly, for no
 
 4. **Stdio transport with ModelContextProtocol 1.1.0** — standard for VS Code Copilot, Claude Desktop.
 
-5. **Session-only auth per user directive** — MCP reuses `~/.finaryexport/session.dat` from CLI. No cold auth, no env var credentials, no Otp.NET.
+5. **Elicitation auth (supersedes session-only directive)** — MCP tries warm start from `~/.finaryexport/session.dat` first. If no session exists, `McpCredentialPrompt` uses MCP Elicitation to prompt the user for credentials through the MCP client. Falls back to suggesting a CLI run if the client doesn't support elicitation. No env var credentials, no Otp.NET.
 
 6. **Bootstrap required** — `finary_get_org_context` must be called before any data tool to set org/membership context.
 
@@ -250,8 +251,10 @@ No XML doc comments (`///`). Use regular comments (`//`) only, sparingly, for no
 ### 2026-03-16T08:45:00Z: User directive — MCP auth via shared session
 
 **By:** the user (via Copilot)  
-**What:** The MCP server must reuse the session.dat created by the CLI exporter. No cold auth / no env var credentials / no TOTP in the MCP server. If no session.dat exists, explain that a first export run is needed to initialize it.  
-**Why:** User request — simplifies MCP auth, removes complexity, single auth source via CLI.
+**Status:** ⚠️ Partially superseded — MCP now supports cold auth via Elicitation (no longer requires session.dat)  
+**Original:** The MCP server must reuse the session.dat created by the CLI exporter. No cold auth / no env var credentials / no TOTP in the MCP server. If no session.dat exists, explain that a first export run is needed to initialize it.  
+**Current:** MCP server still tries session.dat first (warm start), but `McpCredentialPrompt` uses MCP Elicitation for cold auth if no session exists. The "no env var credentials / no Otp.NET" constraint remains in effect.  
+**Why:** Elicitation support in MCP SDK made standalone cold auth possible without env var complexity.
 
 ---
 

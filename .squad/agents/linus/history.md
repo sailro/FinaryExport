@@ -49,6 +49,10 @@ Performed a full audit of every .cs file in `src/FinaryExport/`. Found and fixed
 
 Patterns confirmed clean: all `IFinaryApiClient` methods implemented in both `FinaryApiClient` and `UnifiedFinaryApiClient`. Per-category error isolation working correctly in all sheet writers. ExportContext/ResolveValue used consistently for monetary values. JSON SnakeCaseLower naming matches all model PascalCase properties. Auth warm/cold start flow is sound. TokenRefreshService shutdown is properly cooperative.
 
+### README MCP Documentation (2026-03-17)
+
+Updated README.md to document the MCP server added in the D-mcp-complete work. Added sections for configuration (mcp-config.json entries for Copilot CLI, VS Code, Claude Desktop), authentication (elicitation + session.dat reuse), multi-profile support (get_profiles → set_active_profile workflow), and a full tool catalog table (16 tools across 7 tool classes). No UserSecrets references were found to clean up — README was already clean on that front. Kept existing README style and structure, inserted MCP section before License.
+
 ### Currency Header Rename & Value Resolution Audit (2026-03-15)
 
 Renamed "Currency" column header to "Native Currency" in **AccountsSheet** (column D) and **TransactionsSheet** (column H) to clarify this is the original account/transaction currency, not the display currency (which is already visible in amount cell number formats via `context.CurrencyFormat`). Fixed value resolution inconsistencies: **TransactionsSheet** was using `tx.Value ?? 0m` directly instead of `context.ResolveValue(tx.DisplayValue, tx.Value)` — now uses ResolveValue for consistency with AccountsSheet. **DividendsSheet** had the same issue: both Past and Upcoming dividend detail rows used `div.Amount ?? 0m` instead of `context.ResolveValue(div.DisplayAmount, div.Amount)` — fixed both. Summary fields (`AnnualIncome`, `PastIncome`, etc.) lack display variants in the API model and were left as-is. Commission on Transaction also has no display variant — left as-is.

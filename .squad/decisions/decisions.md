@@ -2,7 +2,7 @@
 
 ## Decision: Use Claude Opus 4.6 (1M context) for All Agent Spawns
 
-**By:** Sebastien (via Copilot directive)  
+**By:** the user (via Copilot directive)  
 **Date:** 2026-03-15T18:36Z  
 **Scope:** Tool configuration, agent spawning
 
@@ -313,3 +313,386 @@ StringSchema password = new StringSchema();
 - **Supersedes:** D-mcp-complete decision #5 ("session-only auth") — MCP now supports cold auth
 - **Builds on:** Decision: Elicitation Pre-Flight Capability Check
 - **Builds on:** Decision: Backfill ElicitationCapability.Form for Spec-Lagging Clients
+
+## Decision: Auto-Init Organization Context in MCP Server
+
+**Author:** Saul (MCP Specialist)  
+**Date:** 2026-03-17  
+**Scope:** MCP Server / DI / API Client
+
+### Context
+
+MCP users had to manually call `get_profiles` → `set_active_profile` before any data tool would work. This was bad UX — new users would get cryptic failures on their first tool call because `_orgId` and `_membershipId` were null.
+
+### Decision
+
+Created `AutoInitFinaryApiClient` — a decorator over `FinaryApiClient` that lazily auto-initializes the organization context on the first data call. Uses `SemaphoreSlim` for thread-safe one-time init.
+
+**Approach chosen:** Decorator pattern (Approach B) — transparent to tool classes, no duplication, no startup delay.
+
+**Rejected alternatives:**
+- Approach A (lazy init in each tool method) — too much duplication across 7 tool classes
+- Approach C (init at startup) — some MCP hosts timeout on slow server starts
+
+### Impact
+
+- MCP data tools now work immediately without any manual setup calls
+- Users can still explicitly call `set_active_profile` to switch profiles (this skips auto-init)
+- No changes to `IFinaryApiClient`, `FinaryApiClient`, or any tool class
+- Build: 0 errors, 0 warnings. Tests: 240/240 passing.
+
+## Decision: Elicitation Pre-Flight Capability Check
+
+**Author:** Saul (MCP Specialist)
+**Date:** 2026-03-18
+**Scope:** MCP Server / Auth
+
+### Context
+
+The MCP elicitation flow was broken. When no `session.dat` exists and a tool is invoked, the auth chain calls `McpCredentialPrompt.PromptCredentialsAsync`, which calls `mcpServer.ElicitAsync(...)`. The SDK's internal `ThrowIfElicitationUnsupported` method throws `InvalidOperationException("Client does not support elicitation requests.")` if the MCP host didn't advertise `elicitation.form` capability during initialization.
+
+Two bugs compounded the issue:
+1. No pre-flight check before calling `ElicitAsync`
+2. The `catch` filter `when (ex is not InvalidOperationException)` excluded exactly the exception type the SDK throws, so the helpful guidance message was never shown
+
+### Decision
+
+1. **Always pre-check `mcpServer.ClientCapabilities?.Elicitation?.Form` before calling `ElicitAsync`** — fail fast with a clear actionable error message including the workaround (run CLI first).
+2. **Add a secondary catch for the SDK's `InvalidOperationException`** as a safety net.
+3. **Error messages always include the workaround** — "run the FinaryExport CLI first to create session.dat".
+
+### Key Findings
+
+- **Elicitation is a client-side capability.** The server doesn't declare it. The client sends `capabilities: { elicitation: { form: {} } }` during `initialize`.
+- **In SDK 1.1.0:** `ElicitRequestParams.Mode` defaults to `"form"`. `ElicitationCapability` has `.Form` and `.Url` sub-capabilities.
+- **GitHub Copilot CLI reportedly supports elicitation** (form mode), but support depends on the client version.
+- **No server-side configuration needed** — `ServerCapabilities` doesn't have an elicitation property.
+
+### Impact
+
+- `McpCredentialPrompt.cs` is the only file changed
+- Build: 0 C# errors, 0 warnings
+- Tests: 240/240 passing
+
+## Decision: Backfill ElicitationCapability.Form for Spec-Lagging Clients
+
+**Author:** Saul (MCP Specialist)  
+**Date:** 2026-03-18  
+**Scope:** MCP Server — Elicitation Capability Negotiation
+
+### Context
+
+SDK 1.1.0 (protocol 2025-11-25) requires `ElicitationCapability.Form` to be non-null for form-mode elicitation. The Copilot CLI sends `elicitation: {}` during initialization without the `form` sub-capability introduced in the 2025-06-18 spec revision. This caused `EnsureElicitationSupported()` and the SDK's `ThrowIfElicitationUnsupported()` to reject elicitation attempts.
+
+### Decision
+
+Instead of strictly checking `Elicitation?.Form is not null`, we now:
+1. Check only `Elicitation is not null` (client supports elicitation in general)
+2. Backfill `Form` with `new FormElicitationCapability()` if missing
+
+This tolerates clients implementing older MCP spec versions while satisfying the SDK's stricter requirements.
+
+### Rationale
+
+- `FormElicitationCapability` is an empty marker class — backfilling it adds no semantic meaning, just satisfies the SDK guard
+- `ClientCapabilities.Elicitation.Form` is writable — safe to mutate in-place
+- Alternative approaches (message filters, reflection on private fields, `KnownClientCapabilities`) were all more complex and fragile
+- `KnownClientCapabilities` was investigated but gets **overwritten** (not merged) during `initialize` — useless here
+
+### Impact
+
+- Any MCP client that sends `elicitation: {}` (without `form`/`url` sub-properties) will now work
+- If a client sends neither `elicitation` nor anything, the error message is still clear and actionable
+- No risk: the worst case is backfilling `Form` when the client already has it (the `??=` makes this a no-op)
+
+## Decision: Async Credential Prompting (MCP Auth Fix)
+
+**Author:** Saul (MCP Specialist)  
+**Date:** 2026-03-17  
+**Scope:** Auth / MCP  
+**Status:** ✅ Implemented
+
+### Problem
+
+MCP tools were failing with generic error `MCP server 'finary': An error occurred invoking 'get_profiles'` when called. Root causes:
+
+1. **Sync-over-async in credential prompt:** `ICredentialPrompt.PromptCredentials()` was synchronous, but `McpCredentialPrompt` needed to call async `McpServer.ElicitAsync()`. The sync-over-async wrapper (`GetAwaiter().GetResult()`) could deadlock or fail in some execution contexts.
+
+2. **Incomplete auto-init coverage:** `AutoInitFinaryApiClient.GetAllProfilesAsync()` and `GetCurrentUserAsync()` bypassed `EnsureInitializedAsync()`, meaning if these were called first (before any data method), auth never triggered and tools failed with generic errors.
+
+3. **No elicitation error handling:** If `ElicitAsync` failed (client doesn't support elicitation, network issue, etc.), users saw a raw exception with no guidance.
+
+### Decision
+
+**Make `ICredentialPrompt` async and wrap ALL `AutoInitFinaryApiClient` methods with auth initialization.**
+
+#### Changes
+
+1. **`ICredentialPrompt` interface** — signature changed to `Task<(string, string, string)> PromptCredentialsAsync(CancellationToken ct = default)`
+
+2. **`ClerkAuthClient.ColdStartAsync()`** — updated to `await credentialPrompt.PromptCredentialsAsync(ct)`
+
+3. **`ConsoleCredentialPrompt`** — implements async interface with `Task.FromResult` wrapper (Console I/O is inherently sync)
+
+4. **`McpCredentialPrompt`** — removed sync-over-async wrapper, made method properly async:
+   ```csharp
+   public async Task<...> PromptCredentialsAsync(CancellationToken ct)
+   {
+       try {
+           var result = await mcpServer.ElicitAsync(requestParams, ct);
+           // ... extract fields
+       }
+       catch (Exception ex) when (ex is not InvalidOperationException) {
+           throw new InvalidOperationException(
+               "Finary authentication required but credential prompting failed. " +
+               "Run the FinaryExport CLI first to create a session (session.dat), " +
+               "or ensure your MCP client supports the 'elicitation' capability. " +
+               $"Details: {ex.Message}", ex);
+       }
+   }
+   ```
+
+5. **`AutoInitFinaryApiClient`** — ALL methods now call `EnsureInitializedAsync()` before delegating:
+    - `GetAllProfilesAsync()` ✅
+    - `GetCurrentUserAsync()` ✅
+    - `GetOrganizationContextAsync()` ✅
+    - All data methods (already wrapped) ✅
+    - `SetOrganizationContext()` — sync method, marks `_initialized = true` (unchanged)
+
+6. **Test update** — `ClerkAuthClientSkipTests` mock now sets up `PromptCredentialsAsync` instead of `PromptCredentials`
+
+### Rationale
+
+- **Async all the way:** Shared interfaces should be async if any implementation needs async. Don't sync-over-async in Core — it risks deadlocks and blocks threads unnecessarily.
+- **Complete decorator coverage:** If any method might trigger auth (directly or indirectly), wrap it. `GetAllProfilesAsync()` and `GetCurrentUserAsync()` are valid entry points for MCP tools.
+- **User-facing error messages:** Auth failures should guide users to action ("run CLI first" or "check MCP client capabilities") not dump stack traces.
+
+### Impact
+
+- **Positive:** MCP auth now works reliably with elicitation. Clear error messages when elicitation fails. No sync-over-async risk.
+- **Breaking:** `ICredentialPrompt` signature changed — any external implementations (none exist) would need updates.
+- **Testing:** 240/240 tests passing. Zero errors, zero warnings.
+
+### Alternatives Considered
+
+1. **Keep interface sync, fix sync-over-async in `McpCredentialPrompt`:**  
+   Not viable — `ElicitAsync` is fundamentally async (MCP protocol), can't make it sync without blocking.
+
+2. **Two interfaces: `ICredentialPrompt` (sync) and `IAsyncCredentialPrompt` (async):**  
+   Complexity for no gain. Console I/O wraps trivially with `Task.FromResult`. Better to have one async interface.
+
+3. **Only wrap data methods in `AutoInitFinaryApiClient`:**  
+   Doesn't solve the problem — `get_profiles` tool calls `GetAllProfilesAsync()`, which needs auth.
+
+### Implementation
+
+- Build: 0 errors, 0 warnings
+- Tests: 240/240 passing
+- Files changed: 6 (ICredentialPrompt.cs, ClerkAuthClient.cs, ConsoleCredentialPrompt.cs, McpCredentialPrompt.cs, AutoInitFinaryApiClient.cs, ClerkAuthClientSkipTests.cs)
+
+## Decision: MCP Elicitation for Cold-Start Auth
+
+**Author:** Saul (MCP Specialist)  
+**Date:** 2026-03-17  
+**Scope:** MCP Server — Authentication
+
+### Decision
+
+Replaced the throw-only `McpCredentialPrompt` with an interactive implementation using MCP Elicitation (`McpServer.ElicitAsync`). The MCP server can now perform cold-start authentication by prompting the user for credentials via the MCP client.
+
+### Context
+
+Previously, per user directive, the MCP server could only work with an existing `session.dat` from the CLI. This meant users had to run the CLI exporter first. The new implementation removes that requirement — if no session exists, the MCP server prompts for email, password, and TOTP code interactively.
+
+### Technical Notes
+
+- `ICredentialPrompt.PromptCredentialsAsync()` is async and `ElicitAsync` is async. No bridging issues.
+- `McpServer` is a concrete class (no `IMcpServer` interface in SDK 1.1.0). Injected directly via DI.
+- This supersedes the earlier "session-only auth" directive for MCP. The MCP server can now independently authenticate.
+
+### Impact
+
+- MCP users no longer need to run the CLI first
+- `session.dat` warm-start still works as before (preferred path)
+- Cold auth only triggers if no valid session exists
+- MCP clients that don't support elicitation will get an error with clear guidance (elicitation is MCP spec 2025-06-18+)
+
+## Decision: MCP Tool Surface — Read-Only Phase 1
+
+**Author:** Livingston (Protocol Analyst)
+**Date:** 2026-03-14
+**Scope:** MCP Server / API Surface
+
+### Context
+
+Cataloged the complete API surface for MCP tool exposure. Analyzed all 15 methods on `IFinaryApiClient`, 37 model types, and ~20 additional wire-observed endpoints.
+
+### Decision
+
+**Phase 1 should expose all 15 `IFinaryApiClient` methods as MCP tools.** Every one is read-only (GET). Zero mutations exist in the client.
+
+The only wire-observed mutation (`PUT /users/me/ui_configuration`) must NOT be exposed.
+
+### Key Constraints for Implementation
+
+1. **Bootstrap required:** MCP session must call `finary_get_org_context` before any data tool — org context is required state.
+2. **Transaction category restriction:** Only 4 of 10 `AssetCategory` values support transactions. Tool description must document this.
+3. **Pagination is internal:** `GetPaginatedListAsync` handles pagination transparently. MCP tools return full lists.
+4. **Rate limiting is infrastructure:** Already handled by `RateLimiter` + `FinaryDelegatingHandler`. No MCP-layer rate limiting needed.
+
+### Artifact
+
+Full catalog: `.squad/artifacts/mcp-tool-catalog.md`
+
+## Decision: User Directive — MCP Auth via Shared Session
+
+**By:** the user (via Copilot)
+**Date:** 2026-03-16T08:45Z
+**Scope:** MCP Server Authentication
+
+### Directive
+
+The MCP server must reuse the session.dat created by the CLI exporter. No cold auth / no env var credentials / no TOTP in the MCP server. If no session.dat exists, explain that a first export run is needed to initialize it.
+
+### Rationale
+
+User request — simplifies MCP auth, removes Otp.NET dependency, single auth source via CLI.
+
+### Status
+
+⚠️ **SUPERSEDED** (2026-03-18) — Saul's elicitation implementation now supports cold-start auth in MCP. The MCP server can authenticate independently without requiring CLI to run first. Session.dat warm-start still works as backup. See "MCP Elicitation for Cold-Start Auth" decision.
+
+## Decision: MCP Architecture Proposal — Extract Shared Library
+
+**Author:** Rusty (Lead)  
+**Date:** 2026-03-17  
+**Status:** ✅ Implemented  
+**Scope:** Solution structure, shared code extraction
+
+### Problem Statement
+
+We have a working CLI tool (`FinaryExport`) that authenticates with Finary via Clerk, queries all API endpoints, and exports to Excel. The request is to expose these same Finary API operations as MCP (Model Context Protocol) tools so an LLM can interact with the Finary API directly — querying accounts, portfolio, transactions, etc.
+
+The constraint: reuse existing auth, API client, models, and infrastructure. Don't rewrite what works.
+
+### Decision: Extract Shared Library
+
+**Option A:** Project references only (MCP project references CLI project) — **Rejected.** The CLI project has `<OutputType>Exe</OutputType>`, `ConsoleCredentialPrompt`, System.CommandLine, ClosedXML, and export-specific code. Referencing it drags all that in. Coupling is wrong.
+
+**Option B:** Extract shared code into `FinaryExport.Core` class library — **✅ Selected.**
+
+#### Rationale
+
+- Clean dependency direction: both `FinaryExport` (CLI) and `FinaryExport.Mcp` (server) reference `FinaryExport.Core`
+- Core contains: API client, auth abstractions, models, infrastructure (rate limiter, handlers, curl bridge)
+- CLI keeps: System.CommandLine, ClosedXML, export sheets, console prompts, Program.cs
+- MCP keeps: MCP SDK, tool definitions, MCP-specific credential handling, server entry point
+- The `ICredentialPrompt` interface stays in Core. `ConsoleCredentialPrompt` moves to CLI. MCP provides its own implementation (now: elicitation-based, can fallback to env-var or session.dat)
+
+### Solution Structure (After Extraction)
+
+```
+FinaryExport.slnx
+├── src/
+│   ├── FinaryExport.Core/                    # Shared library
+│   │   ├── Api/, Auth/, Configuration/, Infrastructure/, Models/
+│   ├── FinaryExport/                         # CLI tool
+│   │   ├── Program.cs, ConsoleCredentialPrompt, Export/
+│   ├── FinaryExport.Mcp/                     # MCP server
+│   │   ├── Program.cs, McpCredentialPrompt, Tools/
+│   └── FinaryExport.Tests/
+└── FinaryExport.slnx
+```
+
+### Key Design Decisions
+
+- **RootNamespace:** Core uses `FinaryExport` — all namespaces unchanged, mechanical file moves only
+- **ServiceCollectionExtensions split:**
+  - Core: `AddFinaryCore()` — registers API client, auth, token refresh, rate limiter
+  - CLI: registers Core + `ConsoleCredentialPrompt` + export services
+  - MCP: registers Core + `McpCredentialPrompt` + auto-init decorator
+- **MCP transport:** stdio (standard for MCP clients like VS Code, Claude Desktop)
+- **MCP credential sources:** Elicitation (primary), session.dat (warm start), environment variables (fallback)
+
+### MCP Server Design
+
+15 read-only tools exposed from `IFinaryApiClient` (all GET endpoints, zero mutations):
+- 3 Portfolio tools
+- 3 Account tools
+- 2 Transaction tools
+- 1 Dividend tool
+- 2 Holdings tools
+- 2 Allocation tools
+- 2 User/Profile tools
+
+All tools auto-initialize org context on first call (transparent, no manual setup required).
+
+### Implementation Status
+
+✅ Core extraction complete  
+✅ CLI references Core, ConsoleCredentialPrompt moved  
+✅ MCP project created with full tool surface  
+✅ MCP auth (elicitation + auto-init) working  
+✅ Build: 0 errors, 0 warnings  
+✅ Tests: 240/240 passing  
+
+### Impact
+
+- No behavior change in CLI (just reorganized)
+- MCP server now available as LLM tool host
+- Shared library (Core) can be reused by other projects
+- CI/CD can test Core in isolation
+
+### Artifacts
+
+Full proposal: `.squad/decisions/inbox/rusty-mcp-architecture.md`
+
+## Security Audit Findings — 2026-03-18
+
+**Author:** Livingston (Protocol Analyst)
+**Scope:** Full repo security audit — git history, source code, config, squad files, credential handling
+
+### Findings
+
+#### 🟢 OK — No Secrets in Code or Git History
+
+Scanned 40+ commits across all branches for: password, secret, token, apikey, api_key, bearer, cookie, session, credential, totp, email addresses. Zero real credentials found anywhere in tracked files or git history.
+
+#### 🟢 OK — Test Data is Synthetic
+
+All test fixtures use synthetic identifiers: "Jean Dupont", "Marie Dupont", `test@example.com`, `user@finary.com`, JWTs with `fake_signature`. Compliant with D-pii.
+
+#### 🟢 OK — Configuration Files Clean
+
+Both `appsettings.json` files (CLI + MCP) contain only logging levels and period config. No secrets, no connection strings, no embedded tokens. `global.json` has only test runner config. No `.env` files exist.
+
+#### 🟢 OK — Session Store Secure
+
+`EncryptedFileSessionStore` stores to `~/.finaryexport/session.dat` (outside repo). DPAPI encryption with `DataProtectionScope.CurrentUser`. Path gitignored. Failures are non-fatal.
+
+#### 🟢 OK — Credential Handling Memory-Only
+
+- `ConsoleCredentialPrompt`: password masked with `*`, credentials returned as in-memory tuple, never logged/stored.
+- `McpCredentialPrompt`: credentials extracted from elicitation result, returned as in-memory tuple, never logged/stored.
+- `ClerkAuthClient`: session IDs truncated to 12 chars in log output via `TruncateId()`. No credential values logged anywhere.
+
+#### 🟢 OK — gitignore Coverage Complete
+
+Verified: `session.dat`, `*.xlsx`, `*.har`, `state.json`, `.env`, `log.txt`, `appsettings.*.json` all gitignored. `git ls-files` confirms zero sensitive files tracked.
+
+#### 🟡 WARNING — D-pii Violations Fixed
+
+Found and fixed 3 instances of real name in tracked squad files:
+1. `.squad/agents/saul/history.md:7` — "**Owner:** the user" → "the user"
+2. `.squad/decisions.md:252` — "**By:** the user" → "the user"
+3. `.squad/decisions/decisions.md:5` — "**By:** Sebastien" → "the user"
+
+These violated D-pii ("squad files refer to 'the user' — never real names"). All three have been corrected.
+
+#### 🟡 NOTE — Git Author Email
+
+`sebastien@lebreton.fr` appears in all git commit author metadata. This is standard git behavior and cannot be changed without history rewriting. If the repo goes public, consider whether this is acceptable or if `git filter-repo` should anonymize commit authors.
+
+### Recommendation
+
+No action required beyond the D-pii fixes already applied. The codebase has strong security hygiene. The previous audit's recommendations (gitignore for log.txt and .env) are still in place and working.

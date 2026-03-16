@@ -132,6 +132,76 @@ The tool discovers all Finary profiles (personal + organization memberships) and
 - One workbook per profile: `finary-export-{name}.xlsx` (ownership-adjusted values)
 - One unified workbook: `finary-export-unified.xlsx` (aggregated raw values across all profiles)
 
+## MCP Server
+
+FinaryExport includes an [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that exposes your Finary data as tools for AI assistants. This lets you query your portfolio, accounts, transactions, dividends, and more directly from Copilot, Claude Desktop, or any MCP-compatible client.
+
+### Configuration
+
+Add the following entry to your MCP configuration file:
+
+- **GitHub Copilot CLI / VS Code:** `~/.copilot/mcp-config.json` (or `.vscode/mcp.json` in your workspace)
+- **Claude Desktop:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "finary": {
+      "type": "stdio",
+      "command": "dotnet",
+      "args": ["run", "--project", "src/FinaryExport.Mcp"]
+    }
+  }
+}
+```
+
+> **Tip:** Replace the `args` with the path to a published executable if you prefer not to use `dotnet run`.
+
+### Authentication
+
+The MCP server authenticates using **MCP Elicitation** — a protocol feature that lets the server prompt the AI client for user input. On first use (when no cached session exists), the server asks for your Finary email, password, and TOTP code via an elicitation form. After successful authentication, the session is encrypted with DPAPI and persisted to:
+
+```
+~/.finaryexport/session.dat
+```
+
+This is the same session file used by the CLI exporter. If you've already run the CLI and authenticated, the MCP server reuses that session automatically — no re-authentication needed.
+
+If your MCP client doesn't support elicitation, run the CLI exporter first (`dotnet run --project src/FinaryExport -- export`) to create the session file, then start the MCP server.
+
+### Multi-Profile Support
+
+If you have multiple Finary profiles (personal + organization memberships), the server auto-initializes with your default profile. To switch profiles:
+
+1. Call **`get_profiles`** to list all available profiles with their `org_id` and `membership_id`
+2. Call **`set_active_profile`** with the desired `org_id` and `membership_id`
+3. All subsequent tool calls use the selected profile
+
+### Available Tools
+
+The MCP server exposes 16 read-only tools:
+
+| Tool | Description |
+|------|-------------|
+| `get_user_profile` | Get the authenticated user's profile (name, email, subscription, display currency) |
+| `get_profiles` | List all available profiles (personal + organization memberships) |
+| `set_active_profile` | Switch the active profile for subsequent queries |
+| `get_portfolio_summary` | Get total portfolio valuation with gross/net values and period performance |
+| `get_portfolio_timeseries` | Get historical portfolio value over time (for charting/trends) |
+| `get_portfolio_fees` | Get fee analysis: annual fees, cumulated fees, potential savings |
+| `get_accounts` | Get all accounts for a specific asset category |
+| `get_all_accounts` | Get accounts across all asset categories in a single call |
+| `get_category_timeseries` | Get historical value timeseries for a specific asset category |
+| `get_transactions` | Get transactions for a category (checkings, savings, investments, credits only) |
+| `get_all_transactions` | Get transactions across all transaction-capable categories |
+| `get_holdings` | Get all holdings accounts with security positions and balances |
+| `get_asset_list` | Get flat list of all individual positions with current value and P&L |
+| `get_dividends` | Get dividend income summary: annual income, yield, past and upcoming dividends |
+| `get_geographical_allocation` | Get portfolio allocation by geographical region |
+| `get_sector_allocation` | Get portfolio allocation by economic sector |
+
+Most tools accept an optional `period` parameter: `all`, `1d`, `1w`, `1m`, `3m`, `6m`, `1y`, `5y`.
+
 ## License
 
 [MIT](LICENSE)

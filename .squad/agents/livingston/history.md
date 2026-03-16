@@ -76,3 +76,16 @@
 - **`UnifiedFinaryApiClient`:** Decorator that aggregates across all memberships transparently. MCP server can swap it in for unified mode without changing tool definitions.
 - **Only observed mutation:** `PUT /users/me/ui_configuration` — flagged as DO NOT EXPOSE.
 - **Output:** `.squad/artifacts/mcp-tool-catalog.md`
+
+### 2026-03-18 — Security Audit #2 Complete
+
+- **Scope:** Full repo (40+ commits, all branches) + working tree + source code + config + squad files.
+- **Result: CLEAN — no CRITICAL findings.** No real credentials, tokens, session IDs, or API keys in tracked files or git history.
+- **Test data:** All synthetic — "Jean Dupont", "Marie Dupont", `test@example.com`, `user@finary.com`, fake-signature JWTs. gitleaksignore up to date.
+- **Config files:** Both `appsettings.json` (CLI + MCP) contain only logging/period config. No secrets.
+- **Session store:** DPAPI-encrypted at `~/.finaryexport/session.dat`, outside repo, gitignored. Path confirmed in `EncryptedFileSessionStore.cs`.
+- **Credential prompts:** Both `ConsoleCredentialPrompt` and `McpCredentialPrompt` hold credentials in memory only. No logging, no file persistence, no stdout output of credential values. Password masked with `*` on console.
+- **ClerkAuthClient:** Session IDs truncated to 12 chars in logs via `TruncateId()`. No credential values logged.
+- **gitignore coverage:** Verified — `session.dat`, `*.xlsx`, `*.har`, `state.json`, `.env`, `log.txt`, `appsettings.*.json` all covered. No sensitive files in `git ls-files`.
+- **Fixed 3 D-pii violations:** Real name appeared in `saul/history.md`, `decisions.md`, `decisions/decisions.md`. Replaced with "the user" per D-pii policy.
+- **Git author email:** `sebastien@lebreton.fr` in commit metadata — standard git behavior, not a code issue. Noted for awareness if repo goes public.

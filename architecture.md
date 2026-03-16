@@ -1,7 +1,7 @@
 # FinaryExport — Architecture Document
 
 > **Author:** Rusty (Lead)
-> **Revised:** 2026-03-17 — updated to reflect current implementation
+> **Revised:** 2026-03-17 — updated for MCP server, Core extraction, elicitation auth
 > **Status:** Living document tracking current implementation state
 
 ---
@@ -9,100 +9,123 @@
 ## Table of Contents
 
 1. [Overview](#1-overview)
-2. [Project Structure](#2-project-structure)
+2. [Solution Structure](#2-solution-structure)
 3. [Dependencies](#3-dependencies)
 4. [CLI Layer](#4-cli-layer)
 5. [Authentication](#5-authentication)
 6. [API Layer](#6-api-layer)
 7. [Multi-Profile & Unified Export](#7-multi-profile--unified-export)
 8. [Export Pipeline](#8-export-pipeline)
-9. [Configuration](#9-configuration)
-10. [Infrastructure](#10-infrastructure)
-11. [Data Model Summary](#11-data-model-summary)
-12. [Design Decisions](#12-design-decisions)
+9. [MCP Server](#9-mcp-server)
+10. [Configuration](#10-configuration)
+11. [Infrastructure](#11-infrastructure)
+12. [Data Model Summary](#12-data-model-summary)
+13. [Design Decisions](#13-design-decisions)
 
 ---
 
 ## 1. Overview
 
-FinaryExport is a .NET 10 console application that exports Finary wealth management data to Excel workbooks. It authenticates via Clerk using TLS-fingerprinted HTTP requests (CurlImpersonate), iterates over all user profiles (memberships), and produces one `.xlsx` per profile plus a unified workbook combining all profiles.
+FinaryExport is a .NET 10 multi-project solution that exports Finary wealth management data to Excel workbooks and exposes it via an MCP (Model Context Protocol) server for AI assistants. It authenticates via Clerk using TLS-fingerprinted HTTP requests (CurlImpersonate), iterates over all user profiles (memberships), and produces one `.xlsx` per profile plus a unified workbook combining all profiles.
+
+The solution contains three projects:
+- **FinaryExport.Core** — shared class library with API client, auth, models, infrastructure
+- **FinaryExport** — CLI tool for Excel export
+- **FinaryExport.Mcp** — MCP server exposing Finary data to AI assistants (Claude Desktop, VS Code Copilot, etc.)
 
 Key technical choices:
 - **CurlImpersonate** — Chrome 136 TLS fingerprint to bypass Cloudflare bot detection
-- **Interactive credentials** — email/password/TOTP prompted at runtime; no secrets in config
+- **Interactive credentials** — email/password/TOTP prompted at runtime (CLI) or via MCP Elicitation (MCP server); no secrets in config
 - **DPAPI session persistence** — encrypted cookie/session cache for warm-start auth
 - **System.CommandLine** — structured CLI with `export`, `clear-session`, `version` commands
 - **ClosedXML** — Excel generation without COM interop
+- **ModelContextProtocol** — stdio-based MCP server with 15 read-only tools
 
 ---
 
-## 2. Project Structure
+## 2. Solution Structure
 
 ```
-src/FinaryExport/
-+-- Program.cs                          # CLI entry point (System.CommandLine)
-+-- FinaryExport.csproj
-+-- appsettings.json
-|
-+-- Api/
-|   +-- IFinaryApiClient.cs             # API contract
-|   +-- FinaryApiClient.cs              # Partial class: core setup, org context, pagination
-|   +-- FinaryApiClient.Categories.cs   # Category-generic endpoints
-|   +-- FinaryApiClient.Portfolio.cs    # Portfolio, timeseries, dividends, allocations, fees, asset list
-|   +-- FinaryApiClient.Reference.cs    # Holdings accounts
-|   +-- FinaryApiClient.Transactions.cs # Transaction endpoints (paginated)
-|   +-- UnifiedFinaryApiClient.cs       # Decorator: merges data across all profiles
-|   +-- RateLimiter.cs                  # Token-bucket, ~5 req/s
-|
-+-- Auth/
-|   +-- ClerkAuthClient.cs              # Clerk auth (CurlImpersonate), cold/warm start
-|   +-- ITokenProvider.cs               # JWT provider contract
-|   +-- ICredentialPrompt.cs            # Credential input contract
-|   +-- ConsoleCredentialPrompt.cs      # Interactive console prompts
-|   +-- ISessionStore.cs                # Session persistence contract
-|   +-- EncryptedFileSessionStore.cs    # DPAPI-encrypted file storage
-|   +-- SessionData.cs                  # Record: SessionId + Cookies
-|   +-- TokenRefreshService.cs          # IHostedService: refreshes JWT every 50s
-|
-+-- Configuration/
-|   +-- FinaryOptions.cs                # OutputPath, Period, SessionStorePath, ClearSession
-|
-+-- Export/
-|   +-- ExportContext.cs                # Controls display vs raw value selection
-|   +-- IWorkbookExporter.cs            # Exporter contract
-|   +-- WorkbookExporter.cs             # Iterates ISheetWriter list, saves .xlsx
-|   +-- Formatting/
-|   |   +-- ExcelStyles.cs              # Currency/percent/date formats, header styling
-|   +-- Sheets/
-|       +-- ISheetWriter.cs             # Sheet writer contract
-|       +-- PortfolioSummarySheet.cs    # Portfolio value, allocation, performance
-|       +-- AccountsSheet.cs            # Accounts across all asset categories
-|       +-- TransactionsSheet.cs        # Buy/sell/income/expense records
-|       +-- DividendsSheet.cs           # Dividend income
-|       +-- HoldingsSheet.cs            # Individual security positions
-|
-+-- Infrastructure/
-|   +-- ServiceCollectionExtensions.cs  # DI registration
-|   +-- CurlMessageHandler.cs           # Bridges CurlClient to HttpMessageHandler
-|   +-- FinaryDelegatingHandler.cs      # Auth headers, rate limit, 401/429 retry
-|   +-- CompactConsoleFormatter.cs      # Single-line log formatter
-|
-+-- Models/
-    +-- ApiEnvelope.cs                  # Generic { result: T } wrapper
-    +-- AssetCategory.cs                # Enum + extension methods (ToUrlSegment, ToDisplayName, HasTransactions)
-    +-- Accounts/
-    |   +-- Account.cs                  # Account with balances, ownership, nested positions
-    |   +-- HoldingsAccount.cs
-    |   +-- OwnershipEntry.cs           # Share + membership for ownership scaling
-    |   +-- SecurityInfo.cs
-    |   +-- SecurityPosition.cs
-    +-- Portfolio/                       # PortfolioSummary, TimeseriesData, DividendSummary (incl. DividendAssetInfo), AllocationData, AssetListEntry, FeeSummary
-    +-- Transactions/                   # Transaction, TransactionCategory
-    +-- User/
-        +-- FinaryProfile.cs            # OrgId + MembershipId + ProfileName
-        +-- Membership.cs
-        +-- Organization.cs
-        +-- UserProfile.cs
+FinaryExport.slnx
+├── Directory.Build.props                  # Shared: net10.0, nullable, implicit usings
+├── Directory.Packages.props               # Central Package Management (all NuGet versions)
+│
+├── src/FinaryExport.Core/                 # Shared class library (RootNamespace=FinaryExport)
+│   ├── FinaryExport.Core.csproj
+│   ├── Api/
+│   │   ├── IFinaryApiClient.cs            # API contract
+│   │   ├── FinaryApiClient.cs             # Partial class: core setup, org context, pagination
+│   │   ├── FinaryApiClient.Categories.cs  # Category-generic endpoints
+│   │   ├── FinaryApiClient.Portfolio.cs   # Portfolio, timeseries, dividends, allocations, fees, asset list
+│   │   ├── FinaryApiClient.Reference.cs   # Holdings accounts
+│   │   ├── FinaryApiClient.Transactions.cs # Transaction endpoints (paginated)
+│   │   ├── UnifiedFinaryApiClient.cs      # Decorator: merges data across all profiles
+│   │   └── RateLimiter.cs                 # Token-bucket, ~5 req/s
+│   ├── Auth/
+│   │   ├── ClerkAuthClient.cs             # Clerk auth (CurlImpersonate), cold/warm start
+│   │   ├── ITokenProvider.cs              # JWT provider contract
+│   │   ├── ICredentialPrompt.cs           # Credential input contract
+│   │   ├── ISessionStore.cs               # Session persistence contract
+│   │   ├── EncryptedFileSessionStore.cs   # DPAPI-encrypted file storage
+│   │   ├── SessionData.cs                 # Record: SessionId + Cookies
+│   │   └── TokenRefreshService.cs         # IHostedService: refreshes JWT every 50s
+│   ├── Configuration/
+│   │   └── FinaryOptions.cs               # OutputPath, SessionStorePath
+│   ├── Infrastructure/
+│   │   ├── ServiceCollectionExtensions.cs  # AddFinaryCore() — DI registration for shared services
+│   │   ├── CurlMessageHandler.cs          # Bridges CurlClient to HttpMessageHandler
+│   │   ├── FinaryDelegatingHandler.cs     # Auth headers, rate limit, 401/429 retry
+│   │   └── CompactConsoleFormatter.cs     # Single-line log formatter
+│   └── Models/
+│       ├── ApiEnvelope.cs                 # FinaryResponse<T> + FinaryError
+│       ├── AssetCategory.cs               # Enum + extension methods (ToUrlSegment, ToDisplayName, HasTransactions)
+│       ├── Accounts/                      # Account, HoldingsAccount, OwnershipEntry, SecurityInfo, SecurityPosition
+│       ├── Portfolio/                     # PortfolioSummary, TimeseriesData, DividendSummary (incl. DividendAssetInfo), AllocationData, AssetListEntry, FeeSummary
+│       ├── Transactions/                  # Transaction, TransactionCategory
+│       └── User/                          # FinaryProfile, Membership, Organization, UserProfile, UiConfiguration, DisplayCurrencyInfo
+│
+├── src/FinaryExport/                      # CLI tool
+│   ├── FinaryExport.csproj                # References FinaryExport.Core
+│   ├── Program.cs                         # CLI entry point (System.CommandLine)
+│   ├── ConsoleCredentialPrompt.cs         # Interactive console prompts for email/password/TOTP
+│   ├── appsettings.json
+│   └── Export/
+│       ├── ExportContext.cs               # Controls display vs raw value selection
+│       ├── IWorkbookExporter.cs           # Exporter contract
+│       ├── WorkbookExporter.cs            # Iterates ISheetWriter list, saves .xlsx
+│       ├── Formatting/
+│       │   └── ExcelStyles.cs             # Currency/percent/date formats, header styling
+│       └── Sheets/
+│           ├── ISheetWriter.cs            # Sheet writer contract
+│           ├── PortfolioSummarySheet.cs   # Portfolio value, allocation, performance
+│           ├── AccountsSheet.cs           # Accounts across all asset categories
+│           ├── TransactionsSheet.cs       # Buy/sell/income/expense records
+│           ├── DividendsSheet.cs          # Dividend income
+│           └── HoldingsSheet.cs           # Individual security positions
+│
+├── src/FinaryExport.Mcp/                  # MCP server
+│   ├── FinaryExport.Mcp.csproj            # References FinaryExport.Core
+│   ├── Program.cs                         # MCP host entry point (stdio transport)
+│   ├── McpCredentialPrompt.cs             # MCP Elicitation-based credential prompts
+│   ├── AutoInitFinaryApiClient.cs         # Decorator: auto-resolves org context on first call
+│   ├── appsettings.json
+│   └── Tools/
+│       ├── UserTools.cs                   # get_user_profile, get_profiles, set_active_profile
+│       ├── PortfolioTools.cs              # get_portfolio_summary, get_portfolio_timeseries, get_portfolio_fees
+│       ├── AccountTools.cs                # get_accounts, get_all_accounts, get_category_timeseries
+│       ├── TransactionTools.cs            # get_transactions, get_all_transactions
+│       ├── DividendTools.cs               # get_dividends
+│       ├── HoldingsTools.cs               # get_holdings, get_asset_list
+│       └── AllocationTools.cs             # get_geographical_allocation, get_sector_allocation
+│
+└── src/FinaryExport.Tests/                # Test project
+    ├── FinaryExport.Tests.csproj          # References FinaryExport.Core + FinaryExport
+    ├── Api/                               # API client tests
+    ├── Auth/                              # Auth tests
+    ├── Export/                            # Sheet writer tests
+    ├── Infrastructure/                    # DI, handler tests
+    ├── Fixtures/                          # Test data
+    └── Helpers/                           # Test utilities
 ```
 
 ---
@@ -115,6 +138,7 @@ src/FinaryExport/
 | Loxifi.CurlImpersonate | 1.1.0 | Chrome 136 TLS fingerprint (Cloudflare bypass) |
 | Microsoft.Extensions.Hosting | 10.0.5 | Generic host, DI, logging, hosted services |
 | Microsoft.Extensions.Http | 10.0.5 | HttpClientFactory for Finary API |
+| ModelContextProtocol | 1.1.0 | MCP server SDK (stdio transport, tool discovery) |
 | System.CommandLine | 2.0.5 | CLI argument parsing (SetAction API) |
 | System.Security.Cryptography.ProtectedData | 10.0.5 | DPAPI encryption for session store |
 
@@ -199,7 +223,10 @@ ClerkAuthClient --> CurlClient(Chrome136) --> clerk.finary.com
 
 ### Credential Input
 
-`ICredentialPrompt` abstracts credential collection. `ConsoleCredentialPrompt` implements it with interactive console prompts (password input is masked). No credentials are stored in configuration files or environment variables — they are entered at runtime during cold start only.
+`ICredentialPrompt` abstracts credential collection. Two implementations exist:
+
+- **`ConsoleCredentialPrompt`** (CLI) — Interactive console prompts with masked password input. Used during cold start only.
+- **`McpCredentialPrompt`** (MCP server) — Uses MCP Elicitation to prompt the user through the MCP client (e.g., VS Code, Claude Desktop). Falls back to suggesting a CLI run if the client doesn't support elicitation.
 
 ---
 
@@ -350,7 +377,63 @@ The detected symbol (e.g., `€`, `$`, `£`) is passed to `ExportContext.Display
 
 ---
 
-## 9. Configuration
+## 9. MCP Server
+
+`FinaryExport.Mcp` is an MCP (Model Context Protocol) server that exposes Finary data to AI assistants (Claude Desktop, VS Code Copilot, etc.) via stdio transport.
+
+### Architecture
+
+```
+Program.cs (Host.CreateApplicationBuilder)
+   |
+   +-- AddFinaryCore()                    # Shared auth, API, HTTP pipeline from Core
+   +-- AutoInitFinaryApiClient            # Decorator: auto-resolves org context lazily
+   +-- McpCredentialPrompt                # Elicitation-based credential collection
+   +-- AddMcpServer().WithStdioServerTransport().WithToolsFromAssembly()
+```
+
+All console logging goes to stderr (stdout is reserved for MCP protocol). Console log threshold is set to `LogLevel.Trace` on stderr.
+
+### Authentication
+
+The MCP server tries warm start first (reuses `~/.finaryexport/session.dat` from a previous CLI run). If no session exists, `McpCredentialPrompt` uses MCP Elicitation to prompt the user for email, password, and TOTP code through the MCP client. If the client doesn't support elicitation, it throws with a message suggesting a CLI run to create the session.
+
+### AutoInitFinaryApiClient
+
+Decorator over `IFinaryApiClient` that lazily calls `GetOrganizationContextAsync()` on the first data request. This means MCP users don't need to manually call `get_profiles` + `set_active_profile` — the server auto-initializes with the owner's default profile. Thread-safe via `SemaphoreSlim` double-checked locking.
+
+### Tool Catalog
+
+15 tools across 7 tool classes, all read-only:
+
+| Class | Tools | Description |
+|-------|-------|-------------|
+| `UserTools` | `get_user_profile`, `get_profiles`, `set_active_profile` | User identity and profile switching |
+| `PortfolioTools` | `get_portfolio_summary`, `get_portfolio_timeseries`, `get_portfolio_fees` | Portfolio valuation and history |
+| `AccountTools` | `get_accounts`, `get_all_accounts`, `get_category_timeseries` | Accounts by category |
+| `TransactionTools` | `get_transactions`, `get_all_transactions` | Transactions (filtered by `HasTransactions()`) |
+| `DividendTools` | `get_dividends` | Dividend income summary |
+| `HoldingsTools` | `get_holdings`, `get_asset_list` | Security positions |
+| `AllocationTools` | `get_geographical_allocation`, `get_sector_allocation` | Portfolio allocation breakdowns |
+
+Tools use `[McpServerToolType]` and `[McpServerTool]` attributes for discovery via `WithToolsFromAssembly()`. Multi-category tools (e.g., `get_all_accounts`) aggregate with per-category error isolation — one failing category doesn't block the others.
+
+### DI Registration (MCP)
+
+```
+AddFinaryCore()                           # Shared: CurlClient, ClerkAuthClient, ITokenProvider,
+                                          #   TokenRefreshService, RateLimiter, HttpClient "Finary",
+                                          #   IFinaryApiClient → FinaryApiClient
+Remove IFinaryApiClient registration      # Replace with decorator
+AddSingleton<FinaryApiClient>             # Keep raw client accessible
+AddSingleton<IFinaryApiClient, AutoInitFinaryApiClient>  # Auto-init decorator
+AddSingleton<ICredentialPrompt, McpCredentialPrompt>     # Elicitation auth
+AddMcpServer().WithStdioServerTransport().WithToolsFromAssembly()
+```
+
+---
+
+## 10. Configuration
 
 ### FinaryOptions
 
@@ -366,15 +449,14 @@ public sealed class FinaryOptions
 }
 ```
 
-**No credentials in config.** Email, password, and TOTP are entered interactively via `ConsoleCredentialPrompt`.
+**No credentials in config.** Email, password, and TOTP are entered interactively via `ConsoleCredentialPrompt` (CLI) or `McpCredentialPrompt` (MCP server).
 
 ### appsettings.json
 
 ```json
 {
   "Finary": {
-    "OutputPath": "finary-export.xlsx",
-    "Period": "all"
+    "OutputPath": "finary-export.xlsx"
   },
   "Logging": {
     "LogLevel": {
@@ -389,16 +471,16 @@ CLI option `--output` overrides the `appsettings.json` value.
 
 ---
 
-## 10. Infrastructure
+## 11. Infrastructure
 
 ### Dependency Injection
 
-`ServiceCollectionExtensions.AddFinaryExport()` registers all services:
+`ServiceCollectionExtensions.AddFinaryCore()` in Core registers shared services. Each consumer (CLI, MCP) registers its own `ICredentialPrompt` implementation and export/MCP services.
 
+**Core services (`AddFinaryCore()`):**
 ```
 CurlClient (singleton, Chrome136)
 |-- Auth
-|   |-- ICredentialPrompt -> ConsoleCredentialPrompt
 |   |-- ISessionStore -> EncryptedFileSessionStore
 |   |-- ClerkAuthClient (also provides ITokenProvider)
 |   +-- TokenRefreshService (IHostedService)
@@ -407,10 +489,13 @@ CurlClient (singleton, Chrome136)
 |   |-- FinaryDelegatingHandler (transient)
 |   |-- HttpClient "Finary" (CurlMessageHandler + FinaryDelegatingHandler)
 |   +-- IFinaryApiClient -> FinaryApiClient
-+-- Export
-    |-- IWorkbookExporter -> WorkbookExporter
-    +-- ISheetWriter -> [PortfolioSummary, Accounts, Transactions, Dividends, Holdings]
 ```
+
+**CLI adds:** `ICredentialPrompt → ConsoleCredentialPrompt`, `IWorkbookExporter → WorkbookExporter`, `ISheetWriter → [PortfolioSummary, Accounts, Transactions, Dividends, Holdings]`
+
+**MCP adds:** `ICredentialPrompt → McpCredentialPrompt`, `IFinaryApiClient → AutoInitFinaryApiClient` (decorator), `AddMcpServer().WithStdioServerTransport().WithToolsFromAssembly()`
+
+Note: `ICredentialPrompt` is NOT registered by `AddFinaryCore()` — each host must provide its own implementation.
 
 ### CurlMessageHandler
 
@@ -422,7 +507,7 @@ Custom `ConsoleFormatter` for single-line log output. Registered when configurin
 
 ---
 
-## 11. Data Model Summary
+## 12. Data Model Summary
 
 ### Key Types
 
@@ -455,7 +540,7 @@ All Finary API responses wrap data in `{ "result": ..., "message": ..., "error":
 
 ---
 
-## 12. Design Decisions
+## 13. Design Decisions
 
 Key decisions documented in `.squad/decisions.md`:
 
@@ -469,6 +554,8 @@ Key decisions documented in `.squad/decisions.md`:
 | D-ratelimit | 5 req/s token bucket + 429 backoff | Conservative ceiling above observed browser rate |
 | D-logging | CompactConsoleFormatter | Single-line log output with short level codes |
 | D-noxml | No XML doc comments | Regular `//` comments only — keeps code compact |
+| D-mcp | MCP server with Core extraction | Expose Finary data to AI assistants; shared library avoids duplication |
+| D-mcp-auth | Elicitation auth for MCP | Warm start from session.dat, cold start via MCP Elicitation prompts |
 
 ---
 
