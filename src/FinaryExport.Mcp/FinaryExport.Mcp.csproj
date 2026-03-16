@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>FinaryExport.Mcp</RootNamespace>
+    <UserSecretsId>finary-mcp-secrets</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FinaryExport.Core\FinaryExport.Core.csproj" />
+  </ItemGroup>
+
+</Project>

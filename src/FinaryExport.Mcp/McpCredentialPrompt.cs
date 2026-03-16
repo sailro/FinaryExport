@@ -25,8 +25,7 @@ public sealed class McpCredentialPrompt(McpServer mcpServer) : ICredentialPrompt
 				["password"] = new ElicitRequestParams.StringSchema
 				{
 					Title = "Password",
-					Description = "Your Finary account password",
-					Format = "password"
+					Description = "Your Finary account password"
 				},
 				["totp_code"] = new ElicitRequestParams.StringSchema
 				{
@@ -61,12 +60,6 @@ public sealed class McpCredentialPrompt(McpServer mcpServer) : ICredentialPrompt
 
 			return (email, password, totpCode);
 		}
-		catch (InvalidOperationException) when (!IsElicitationSupported())
-		{
-			// The SDK threw because client capabilities changed or weren't fully negotiated.
-			// Re-throw with the same guidance as the pre-flight check.
-			throw new InvalidOperationException(NoElicitationMessage());
-		}
 		catch (Exception ex) when (ex is not InvalidOperationException)
 		{
 			throw new InvalidOperationException(
@@ -77,27 +70,19 @@ public sealed class McpCredentialPrompt(McpServer mcpServer) : ICredentialPrompt
 		}
 	}
 
-	// Pre-flight: verify elicitation capability and backfill the form sub-mode if needed.
-	// Some clients (e.g. Copilot CLI) send elicitation: {} without the form sub-capability
-	// introduced in the 2025-06-18 spec revision. The SDK 1.1.0 requires Form to be non-null
-	// for form-mode requests, so we backfill it when the client supports elicitation in general.
+	// Verify the MCP client advertised elicitation capability and backfill the form
+	// sub-mode if needed. Some clients send elicitation: {} without the form sub-capability
+	// introduced in the 2025-06-18 spec revision. The SDK requires Form to be non-null.
 	private void EnsureElicitationSupported()
 	{
 		var caps = mcpServer.ClientCapabilities;
 		if (caps?.Elicitation is null)
-			throw new InvalidOperationException(NoElicitationMessage());
+			throw new InvalidOperationException(
+				"Finary authentication required but no session.dat exists, " +
+				"and the MCP client does not support elicitation.\n\n" +
+				"Workaround: run the FinaryExport CLI first to create a session (session.dat), " +
+				"then the MCP server will reuse it without needing elicitation.");
 
 		caps.Elicitation.Form ??= new FormElicitationCapability();
 	}
-
-	private bool IsElicitationSupported() =>
-		mcpServer.ClientCapabilities?.Elicitation is not null;
-
-	private static string NoElicitationMessage() =>
-		"Finary authentication required but no session.dat exists, " +
-		"and the MCP client (host) does not support elicitation. " +
-		"The server needs to prompt for email, password, and TOTP code, " +
-		"but the client did not advertise 'elicitation' capability during initialization.\n\n" +
-		"Workaround: run the FinaryExport CLI first to create a session (session.dat), " +
-		"then the MCP server will reuse it without needing elicitation.";
 }
