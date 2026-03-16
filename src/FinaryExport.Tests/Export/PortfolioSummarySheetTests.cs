@@ -3,7 +3,6 @@ using FinaryExport.Api;
 using FinaryExport.Export;
 using FinaryExport.Export.Sheets;
 using FinaryExport.Models;
-using FinaryExport.Models.Accounts;
 using FinaryExport.Models.Portfolio;
 using FluentAssertions;
 using Moq;

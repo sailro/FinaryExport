@@ -1,4 +1,6 @@
-namespace FinaryExport.Auth;
+using FinaryExport.Auth;
+
+namespace FinaryExport;
 
 // Interactive console prompts for cold-start authentication.
 // Password input is masked with asterisks.

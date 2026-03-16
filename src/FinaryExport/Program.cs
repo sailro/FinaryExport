@@ -1,5 +1,6 @@
 ﻿using System.CommandLine;
 using System.Diagnostics;
+using FinaryExport;
 using FinaryExport.Api;
 using FinaryExport.Auth;
 using FinaryExport.Configuration;
@@ -7,7 +8,6 @@ using FinaryExport.Export;
 using FinaryExport.Export.Sheets;
 using FinaryExport.Infrastructure;
 using FinaryExport.Models;
-using FinaryExport.Models.Accounts;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
