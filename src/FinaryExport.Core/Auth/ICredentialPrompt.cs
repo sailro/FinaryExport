@@ -4,5 +4,5 @@ namespace FinaryExport.Auth;
 // Decoupled from ClerkAuthClient to allow testing and alternative implementations.
 public interface ICredentialPrompt
 {
-	(string Email, string Password, string TotpCode) PromptCredentials();
+	Task<(string Email, string Password, string TotpCode)> PromptCredentialsAsync(CancellationToken ct = default);
 }

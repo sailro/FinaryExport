@@ -4,6 +4,7 @@ using FinaryExport.Api;
 using FinaryExport.Auth;
 using FinaryExport.Configuration;
 using FinaryExport.Export;
+using FinaryExport.Export.Sheets;
 using FinaryExport.Infrastructure;
 using FinaryExport.Models;
 using FinaryExport.Models.Accounts;
@@ -213,7 +214,19 @@ static void ConfigureHost(HostApplicationBuilder builder, string? output, bool c
 		if (output is not null) config.OutputPath = output;
 	});
 
-	builder.Services.AddFinaryExport();
+	// Core services (auth, API client, HTTP, rate limiter)
+	builder.Services.AddFinaryCore();
+
+	// CLI-specific: interactive credential prompt
+	builder.Services.AddSingleton<ICredentialPrompt, ConsoleCredentialPrompt>();
+
+	// Export services
+	builder.Services.AddSingleton<IWorkbookExporter, WorkbookExporter>();
+	builder.Services.AddSingleton<ISheetWriter, PortfolioSummarySheet>();
+	builder.Services.AddSingleton<ISheetWriter, AccountsSheet>();
+	builder.Services.AddSingleton<ISheetWriter, TransactionsSheet>();
+	builder.Services.AddSingleton<ISheetWriter, DividendsSheet>();
+	builder.Services.AddSingleton<ISheetWriter, HoldingsSheet>();
 }
 
 // Builds a per-profile output path from the user's --output option and the profile name.

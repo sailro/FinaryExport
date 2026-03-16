@@ -116,7 +116,7 @@ public sealed class ClerkAuthClient(
 	{
 		logger.LogDebug("Starting cold authentication...");
 
-		var (email, password, totpCode) = credentialPrompt.PromptCredentials();
+		var (email, password, totpCode) = await credentialPrompt.PromptCredentialsAsync(ct);
 
 		if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(totpCode))
 			throw new AuthenticationException("Email, password, and TOTP code are all required.");

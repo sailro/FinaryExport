@@ -3,7 +3,9 @@
     <File Path=".editorconfig" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/FinaryExport.Core/FinaryExport.Core.csproj" />
     <Project Path="src/FinaryExport/FinaryExport.csproj" />
+    <Project Path="src/FinaryExport.Mcp/FinaryExport.Mcp.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="src/FinaryExport.Tests/FinaryExport.Tests.csproj" />

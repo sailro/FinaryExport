@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\FinaryExport.Core\FinaryExport.Core.csproj" />
     <ProjectReference Include="..\FinaryExport\FinaryExport.csproj" />
   </ItemGroup>
 

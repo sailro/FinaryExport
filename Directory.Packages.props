@@ -9,6 +9,9 @@
     <PackageVersion Include="System.CommandLine" Version="2.0.5" />
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.5" />
 
+    <!-- MCP server -->
+    <PackageVersion Include="ModelContextProtocol" Version="1.1.0" />
+
     <!-- Test project -->
     <PackageVersion Include="coverlet.collector" Version="8.0.0" />
     <PackageVersion Include="FluentAssertions" Version="8.8.0" />

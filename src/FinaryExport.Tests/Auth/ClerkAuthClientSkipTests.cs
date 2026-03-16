@@ -13,6 +13,8 @@ public sealed class ClerkAuthClientSkipTests
 	{
 		var store = new InMemorySessionStore();
 		var prompt = new Mock<ICredentialPrompt>();
+		prompt.Setup(p => p.PromptCredentialsAsync(It.IsAny<CancellationToken>()))
+			.ReturnsAsync(("test@example.com", "password", "123456"));
 		var logger = NullLogger<ClerkAuthClient>.Instance;
 		return new ClerkAuthClient(store, prompt.Object, logger);
 	}

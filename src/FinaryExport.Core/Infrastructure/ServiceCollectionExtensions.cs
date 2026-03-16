@@ -1,7 +1,5 @@
 using FinaryExport.Api;
 using FinaryExport.Auth;
-using FinaryExport.Export;
-using FinaryExport.Export.Sheets;
 using Loxifi.CurlImpersonate;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -9,13 +7,13 @@ namespace FinaryExport.Infrastructure;
 
 public static class ServiceCollectionExtensions
 {
-	public static IServiceCollection AddFinaryExport(this IServiceCollection services)
+	public static IServiceCollection AddFinaryCore(this IServiceCollection services)
 	{
 		// CurlImpersonate client for Finary API calls (Chrome TLS fingerprint to bypass Cloudflare)
 		services.AddSingleton(_ => new CurlClient(BrowserProfile.Chrome136));
 
 		// Auth services (ClerkAuthClient uses CurlImpersonate directly for Clerk calls)
-		services.AddSingleton<ICredentialPrompt, ConsoleCredentialPrompt>();
+		// NOTE: ICredentialPrompt is NOT registered here — host project must register its own implementation
 		services.AddSingleton<ISessionStore, EncryptedFileSessionStore>();
 		services.AddSingleton<ClerkAuthClient>();
 		services.AddSingleton<ITokenProvider>(sp => sp.GetRequiredService<ClerkAuthClient>());
@@ -36,14 +34,6 @@ public static class ServiceCollectionExtensions
 
 		// API client
 		services.AddSingleton<IFinaryApiClient, FinaryApiClient>();
-
-		// Export services
-		services.AddSingleton<IWorkbookExporter, WorkbookExporter>();
-		services.AddSingleton<ISheetWriter, PortfolioSummarySheet>();
-		services.AddSingleton<ISheetWriter, AccountsSheet>();
-		services.AddSingleton<ISheetWriter, TransactionsSheet>();
-		services.AddSingleton<ISheetWriter, DividendsSheet>();
-		services.AddSingleton<ISheetWriter, HoldingsSheet>();
 
 		return services;
 	}

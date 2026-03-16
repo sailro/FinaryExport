@@ -4,17 +4,15 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>FinaryExport</RootNamespace>
     <UserSecretsId>finary-export-secrets</UserSecretsId>
-    <!-- DPAPI session store is Windows-only by design (architecture.md D13) -->
-    <NoWarn>CA1416</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="ClosedXML" />
-    <PackageReference Include="Loxifi.CurlImpersonate" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" />
-    <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="System.CommandLine" />
-    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FinaryExport.Core\FinaryExport.Core.csproj" />
   </ItemGroup>
 
 </Project>

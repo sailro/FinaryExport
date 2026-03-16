@@ -4,7 +4,7 @@ namespace FinaryExport.Auth;
 // Password input is masked with asterisks.
 public sealed class ConsoleCredentialPrompt : ICredentialPrompt
 {
-	public (string Email, string Password, string TotpCode) PromptCredentials()
+	public Task<(string Email, string Password, string TotpCode)> PromptCredentialsAsync(CancellationToken ct = default)
 	{
 		Console.WriteLine();
 		Console.WriteLine("Authentication required (no stored session).");
@@ -20,7 +20,7 @@ public sealed class ConsoleCredentialPrompt : ICredentialPrompt
 		var totpCode = Console.ReadLine()?.Trim() ?? "";
 
 		Console.WriteLine();
-		return (email, password, totpCode);
+		return Task.FromResult((email, password, totpCode));
 	}
 
 	// Reads input character-by-character, displaying '*' for each keystroke.
