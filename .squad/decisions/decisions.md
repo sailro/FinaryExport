@@ -213,3 +213,103 @@ To enable trimming later:
 2. Verify ClosedXML trim compatibility (or add `[DynamicDependency]` annotations)
 3. Test with `<PublishTrimmed>true</PublishTrimmed>` + `<TrimmerSingleWarn>false</TrimmerSingleWarn>` to surface all warnings
 4. Consider Native AOT at that point too (same prerequisites)
+
+## Decision: MCP Elicitation Credential Prompt — Root Cause Fix
+
+**Author:** Saul + Scribe (Debugging Session)  
+**Date:** 2026-03-18  
+**Scope:** MCP Server — Authentication / Elicitation  
+**Commit:** 5d2722a "fix: MCP elicitation credential prompt"
+
+### Problem Statement
+
+MCP server's credential elicitation was completely broken. All tool calls requiring authentication returned "An error occurred" with no diagnostic details. Users could not authenticate via MCP tools. The root cause was discovered after three earlier Saul spawns added robustness (pre-flight checks, capability backfill) but not the fix.
+
+### Root Cause
+
+`Format = "password"` in `ElicitRequestParams.StringSchema` violates MCP SDK constraints. The SDK only accepts these format values in StringSchema:
+- `email`
+- `uri`
+- `date`
+- `date-time`
+
+Using any other value (including `"password"`) throws `ArgumentException`. The original code silently swallowed this exception, resulting in generic "An error occurred" error messages that masked the real problem.
+
+### The Fix
+
+Removed `Format = "password"` from the password field schema — a one-line change:
+
+```csharp
+// BEFORE: throws ArgumentException during ElicitAsync
+StringSchema password = new StringSchema { Format = "password" };
+
+// AFTER: works correctly
+StringSchema password = new StringSchema();
+```
+
+**Result:** Elicitation now works perfectly. Users can authenticate via MCP tools.
+
+### The Debugging Journey
+
+1. **Initial hypothesis (wrong):** Copilot CLI doesn't support elicitation
+   - Disproven: CLI does support elicitation
+   
+2. **Spawns 1 & 2 improvements:** Added pre-flight capability check + FormElicitationCapability backfill
+   - Improved robustness but didn't fix the core issue
+   
+3. **Breakthrough moment:** Built debug_elicitation tool that called ElicitAsync directly
+   - **It worked!** Users could authenticate through it
+   - Revealed paradox: "Why does debug work but real tools fail?"
+   
+4. **Exception visibility:** Wrapped get_profiles in try/catch
+   - Caught the real exception: `ArgumentException("Invalid Format value in StringSchema")`
+   - Identified the constraint violation
+   
+5. **Root cause identified:** MCP SDK validates Format values strictly
+   - Checked SDK source and docs
+   - Found the allowed values list
+   - Removed Format="password"
+   - Elicitation now works
+
+### Key Decisions
+
+1. **MCP Elicitation works with Copilot CLI** — the server must use only valid format values (email, uri, date, date-time) in StringSchema
+
+2. **FormElicitationCapability backfill is kept** — some clients send `elicitation: {}` without form sub-mode. This safeguard remains necessary.
+
+3. **Original "session-only auth" directive is SUPERSEDED** — The MCP server successfully supports cold authentication via elicitation when no session.dat exists (assuming a valid MCP client).
+
+4. **Exception visibility is critical for debugging** — Silent exception swallowing masked the real problem. The breakthrough came from surfacing the exception.
+
+### Changes Made
+
+- Removed `Format = "password"` from ElicitRequestParams.StringSchema
+- Removed temporary debug_elicitation tool (used only to validate hypothesis)
+- Cleaned up exception wrapping and verbose logging (exception visibility was only needed for root cause discovery)
+- Kept FormElicitationCapability backfill from earlier Spawns 1-2 (necessary for client compatibility)
+
+### Lessons Recorded
+
+1. **MCP SDK StringSchema Format is strictly validated** — only email, uri, date, date-time are allowed. Always check SDK documentation for constrained fields.
+
+2. **Debug tools that directly test hypotheses are powerful** — The debug_elicitation tool proved capability exists and led to asking "why does this work but that doesn't?"
+
+3. **Paradoxes point to root cause** — "Why does debug work but real tools fail?" is a powerful debugging question that led directly to the fix.
+
+4. **Silent exceptions are dangerous** — Always surface exceptions during investigation, even if the final solution removes the verbose error handling.
+
+5. **Exception filters can hide critical errors** — The original `catch (Exception ex) when (ex is not InvalidOperationException)` excluded the exact exception type the SDK was throwing.
+
+### Impact
+
+- ✅ Credential elicitation works
+- ✅ Users can authenticate via MCP tools without running CLI first
+- ✅ All auth-dependent features now accessible
+- ✅ Error messages are clear (no more generic "An error occurred")
+- ✅ MCP server achieves true cold-start capability
+
+### Related Decisions
+
+- **Supersedes:** D-mcp-complete decision #5 ("session-only auth") — MCP now supports cold auth
+- **Builds on:** Decision: Elicitation Pre-Flight Capability Check
+- **Builds on:** Decision: Backfill ElicitationCapability.Form for Spec-Lagging Clients

@@ -132,3 +132,86 @@
 - Exception filter `when (ex is not X)` can silently let critical exceptions propagate — be careful with filter conditions
 
 **Key file:** `src/FinaryExport.Mcp/McpCredentialPrompt.cs`
+
+### 2026-03-18: Elicitation Form Sub-Capability Backfill Fix
+
+**Problem:** MCP elicitation was failing with Copilot CLI even though the client supports elicitation. The pre-flight check `mcpServer.ClientCapabilities?.Elicitation?.Form is not null` was returning false, and the SDK's `ThrowIfElicitationUnsupported` would also throw for the same reason.
+
+**Root cause:** SDK 1.1.0 (protocol version 2025-11-25) introduced `form` and `url` sub-modes under `ElicitationCapability`. The Copilot CLI sends `capabilities: { elicitation: {} }` during `initialize` (no `form` sub-property), which deserializes to `ElicitationCapability { Form = null, Url = null }`. The SDK requires `Form` to be non-null for form-mode requests (the default mode).
+
+**SDK analysis (ModelContextProtocol 1.1.0):**
+- `ElicitRequestParams.Mode` defaults to `"form"` (`get => field ??= "form"`)
+- `ThrowIfElicitationUnsupported` checks: `ClientCapabilities is null` → `Elicitation is null` → if mode is "form", `Elicitation.Form is null`
+- `ElicitationCapability.Form` is writable. `FormElicitationCapability` is an empty marker class (no properties).
+- `McpServerOptions.KnownClientCapabilities` sets initial `_clientCapabilities` but gets **overwritten** by `request?.Capabilities ?? new()` during the initialize handler — no merging.
+- Server protocol version: `McpSessionHandler.LatestProtocolVersion = "2025-11-25"`
+
+**Fix:** Changed `EnsureElicitationSupported()` from a strict check-and-throw to a check-and-backfill:
+1. Check `ClientCapabilities?.Elicitation is null` (throw if no elicitation at all)
+2. Backfill: `caps.Elicitation.Form ??= new FormElicitationCapability()` (fill in form sub-mode)
+3. Relaxed `IsElicitationSupported()` to check `Elicitation is not null` (without `.Form`)
+
+**Build result:** 0 errors, 0 warnings, 240/240 tests passing.
+
+**Key learnings:**
+- The MCP spec evolved: `elicitation: {}` (pre-2025-06-18) vs `elicitation: { form: {}, url: {} }` (2025-06-18+)
+- SDK 1.1.0 targets the newer spec but clients may implement the older capability format
+- `FormElicitationCapability` and `UrlElicitationCapability` are marker classes — safe to construct empty
+- `ClientCapabilities` properties are writable — safe to backfill in-place before calling `ElicitAsync`
+- `KnownClientCapabilities` is NOT merged with client's initialize capabilities — it's only a pre-initialization default
+
+**Key file:** `src/FinaryExport.Mcp/McpCredentialPrompt.cs`
+
+### 2026-03-18: CRITICAL FIX — MCP Elicitation Credential Prompt (Root Cause: Format="password")
+
+**Problem:** MCP server's credential elicitation was completely broken. All tool calls requiring authentication returned "An error occurred" with no diagnostic details. Users could not authenticate via MCP tools at all.
+
+**Root Cause Found:** `Format = "password"` in `ElicitRequestParams.StringSchema` throws `ArgumentException` because the MCP SDK only accepts these format values:
+- `email`
+- `uri`
+- `date`
+- `date-time`
+
+Using `Format = "password"` violated the SDK's strict StringSchema constraints.
+
+**The Debugging Journey:**
+1. **Initial theory:** Copilot CLI doesn't support elicitation → **WRONG** (it does)
+2. **Spawn 1 & 2 attempts:** Added pre-flight capability check + FormElicitationCapability backfill → helpful but not the fix
+3. **Breakthrough:** Built a debug_elicitation tool that called `ElicitAsync` directly → **it worked**. Users could authenticate through it.
+4. **Key insight:** Asked "why does debug work but real tools fail?" → led to wrapping get_profiles in try/catch
+5. **Root cause discovery:** Caught the REAL exception that was being silently swallowed — `ArgumentException` from MCP SDK about invalid Format value
+6. **The fix:** Removed `Format = "password"` from password field schema — one line changed
+
+**Technical detail:**
+```csharp
+// BEFORE: throws ArgumentException
+StringSchema password = new StringSchema { Format = "password" };
+
+// AFTER: works correctly
+StringSchema password = new StringSchema();
+```
+
+**Critical lesson:** Silent exception swallowing masked the real problem. The original code didn't surface the ArgumentException, making it invisible until we wrapped it in try/catch for debugging. This led to the breakthrough of using a debug tool to prove elicitation capability exists, then asking "why does debug work" to find the discrepancy.
+
+**Changes made:**
+- Removed `Format = "password"` from ElicitRequestParams.StringSchema
+- Removed temporary debug_elicitation tool (used only to validate hypothesis)
+- Cleaned up verbose error wrapping and logging
+- Kept FormElicitationCapability backfill from earlier spawns (necessary for some clients)
+
+**Build result:** 0 errors, 0 warnings, all tests passing.
+
+**Key learnings:**
+- MCP SDK StringSchema `Format` is strictly validated — only email, uri, date, date-time are allowed
+- Exception visibility is critical for debugging silent failures
+- Debug tools that directly test hypothesis can reveal paradoxes ("why does this work but that doesn't?") that point to root cause
+- Always surface exceptions during investigation, even if final solution removes the verbose error handling
+
+**Decisions superseded:**
+- Original "session-only auth" directive (D-mcp-complete decision #5) is now SUPERSEDED
+- MCP server successfully supports cold authentication via elicitation when no session.dat exists
+- The FormElicitationCapability backfill is kept — some clients send `elicitation: {}` without form sub-mode
+
+**Commit:** 5d2722a "fix: MCP elicitation credential prompt"
+
+**Key files:** `src/FinaryExport.Mcp/McpCredentialPrompt.cs` and `src/FinaryExport.Mcp/ElicitRequestParams.cs`
