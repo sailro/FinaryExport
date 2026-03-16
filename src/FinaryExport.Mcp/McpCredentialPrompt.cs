@@ -5,7 +5,7 @@ using ModelContextProtocol.Server;
 namespace FinaryExport.Mcp;
 
 // Prompts the user for Finary credentials via MCP Elicitation when no session.dat exists.
-// Requires the MCP client (host) to advertise elicitation.form capability during initialization.
+// Requires the MCP client (host) to advertise elicitation capability during initialization.
 public sealed class McpCredentialPrompt(McpServer mcpServer) : ICredentialPrompt
 {
 	public async Task<(string Email, string Password, string TotpCode)> PromptCredentialsAsync(CancellationToken ct = default)
@@ -77,22 +77,27 @@ public sealed class McpCredentialPrompt(McpServer mcpServer) : ICredentialPrompt
 		}
 	}
 
-	// Pre-flight check: verify the MCP client advertised elicitation.form capability
-	// before attempting ElicitAsync, so we can give a clear actionable error.
+	// Pre-flight: verify elicitation capability and backfill the form sub-mode if needed.
+	// Some clients (e.g. Copilot CLI) send elicitation: {} without the form sub-capability
+	// introduced in the 2025-06-18 spec revision. The SDK 1.1.0 requires Form to be non-null
+	// for form-mode requests, so we backfill it when the client supports elicitation in general.
 	private void EnsureElicitationSupported()
 	{
-		if (!IsElicitationSupported())
+		var caps = mcpServer.ClientCapabilities;
+		if (caps?.Elicitation is null)
 			throw new InvalidOperationException(NoElicitationMessage());
+
+		caps.Elicitation.Form ??= new FormElicitationCapability();
 	}
 
 	private bool IsElicitationSupported() =>
-		mcpServer.ClientCapabilities?.Elicitation?.Form is not null;
+		mcpServer.ClientCapabilities?.Elicitation is not null;
 
 	private static string NoElicitationMessage() =>
 		"Finary authentication required but no session.dat exists, " +
-		"and the MCP client (host) does not support elicitation (form mode). " +
+		"and the MCP client (host) does not support elicitation. " +
 		"The server needs to prompt for email, password, and TOTP code, " +
-		"but the client did not advertise 'elicitation.form' capability during initialization.\n\n" +
+		"but the client did not advertise 'elicitation' capability during initialization.\n\n" +
 		"Workaround: run the FinaryExport CLI first to create a session (session.dat), " +
 		"then the MCP server will reuse it without needing elicitation.";
 }
