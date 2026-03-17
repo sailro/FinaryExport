@@ -37,6 +37,9 @@ public sealed partial class FinaryApiClient
 
 	public async Task<List<AssetListEntry>> GetAssetListAsync(string period = "all", CancellationToken ct = default)
 	{
-		return await GetAsync<List<AssetListEntry>>($"{BasePath}/asset_list?limit=100&period={period}", ct) ?? [];
+		return await GetPaginatedListAsync<AssetListEntry>(
+			$"{BasePath}/asset_list?period={period}",
+			pageSize: 100,
+			ct);
 	}
 }

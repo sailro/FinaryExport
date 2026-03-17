@@ -11,6 +11,19 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-03-17 — Full Pagination Audit Complete
+
+Completed comprehensive audit of all API pagination call sites (14 methods, 7 MCP tool classes, 2 decorator clients). **Result: NO BUGS FOUND.** The `GetAssetListAsync` pagination issue (single-page `limit=100` fetch) was already fixed by Linus — now correctly uses `GetPaginatedListAsync`.
+
+**Pagination infrastructure verified:**
+- Two patterns exist: `GetAsync<T>` for single-object/bounded-list fetches, `GetPaginatedListAsync<T>` for auto-pagination
+- Properly paginated endpoints (2): `GetCategoryTransactionsAsync` (pageSize=200), `GetAssetListAsync` (pageSize=100)
+- Safe unpaginated endpoints (12): Accounts (bounded by real-world count), timeseries (bounded by time period), organizations (1-3 memberships), allocations (categorical breakdowns)
+- MCP tools: Pure wrappers around `IFinaryApiClient` — no direct HTTP calls, pagination inherited from underlying client
+- Decorator clients: `UnifiedFinaryApiClient` and `AutoInitFinaryApiClient` delegate to inner client — pagination is inherited
+
+**Future guidance:** Any new endpoint returning `List<T>` for transactions, holdings, or positions should use `GetPaginatedListAsync`. Accounts and timeseries are safe unpaginated.
+
 ### 2026-03-12 — API Analysis Complete
 
 - **Auth provider:** Clerk (clerk.finary.com), not custom. Clerk JS SDK v5.125.4, API version 2025-11-10.
@@ -89,3 +102,15 @@
 - **gitignore coverage:** Verified — `session.dat`, `*.xlsx`, `*.har`, `state.json`, `.env`, `log.txt`, `appsettings.*.json` all covered. No sensitive files in `git ls-files`.
 - **Fixed 3 D-pii violations:** Real name appeared in `saul/history.md`, `decisions.md`, `decisions/decisions.md`. Replaced with "the user" per D-pii policy.
 - **Git author email:** `sebastien@lebreton.fr` in commit metadata — standard git behavior, not a code issue. Noted for awareness if repo goes public.
+
+### 2026-03-18 — Full Pagination Audit Complete
+
+- **Scope:** All HTTP call sites in `FinaryApiClient.*` partials, decorator clients (`UnifiedFinaryApiClient`, `AutoInitFinaryApiClient`), and MCP tools.
+- **Result: NO BUGS FOUND.** The `GetAssetListAsync` issue (single-page `limit=100` fetch) was already fixed by Linus — now uses `GetPaginatedListAsync`.
+- **Pagination infrastructure:** Two patterns exist: `GetAsync<T>` for single-object/bounded-list fetches, `GetPaginatedListAsync<T>` for auto-pagination with `page`+`per_page`.
+- **Properly paginated endpoints (2):** `GetCategoryTransactionsAsync` (pageSize=200), `GetAssetListAsync` (pageSize=100).
+- **Safe unpaginated endpoints:** Accounts (bounded by real-world count), timeseries (bounded by time period), organizations (1-3 memberships), allocations (categorical breakdowns).
+- **MCP tools:** Pure wrappers around `IFinaryApiClient` — no direct HTTP calls, no pagination issues.
+- **Decorator clients:** `UnifiedFinaryApiClient` and `AutoInitFinaryApiClient` delegate to inner client — pagination is inherited.
+- **Guideline for future:** Any new endpoint returning `List<T>` for transactions, holdings, or positions must use `GetPaginatedListAsync`. Accounts/timeseries/organizations are safe without pagination.
+- **Output:** `.squad/decisions/inbox/livingston-pagination-audit.md`

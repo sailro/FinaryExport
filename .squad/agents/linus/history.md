@@ -18,9 +18,21 @@
 - **Testing:** 240 tests (xUnit), 13 test files. Covers auth, API, export, infrastructure, formatters. 100% pass rate. No trimming enabled (PublishTrimmed=false due to reflection dependencies).
 - **Publish:** win-x64 self-contained single-file executable (~90 MB). README has build/publish/run instructions.
 
-**Last Updated:** 2026-03-15 reassessment. Build: 0 warnings, 0 errors. All decisions filed in `.squad/decisions/decisions.md`.
+**Last Updated:** 2026-03-17 pagination fix & audit. Build: 0 warnings, 0 errors. All decisions filed in `.squad/decisions/decisions.md`.
 
 ## Learnings
+### Asset List Pagination Fix (2026-03-17)
+
+Fixed critical bug in `GetAssetListAsync` that was limiting results to 100 assets per export. The method was using `limit=100` (single-page fetch) instead of paginating through results. Users with 27+ total positions lost lower-value holdings in exports.
+
+**Change:** Switched `GetAssetListAsync` from `GetAsync<List<AssetListEntry>>($"{BasePath}/asset_list?limit=100")` to `GetPaginatedListAsync<AssetListEntry>($"{BasePath}/asset_list", pageSize: 100)`.
+
+**Why it matters:** Finary's `limit` parameter caps results but doesn't enable pagination. The actual pagination mechanism uses `page` + `per_page` query parameters, which the `GetPaginatedListAsync` helper implements correctly (loops until `batch.Count < pageSize`).
+
+**Testing:** All 240 tests pass. Backward compatible — method signature unchanged.
+
+**Impact:** Paired with Livingston's full pagination audit (14 API methods, 7 MCP tools, 2 decorator clients) — no other pagination bugs found. Future guidance: all new list endpoints should use `GetPaginatedListAsync`.
+
 ### FinaryExport.Core Extraction (2026-03-17)
 
 Extracted shared library `FinaryExport.Core` from the CLI project per Rusty's MCP architecture proposal (§2-§5). Pure refactoring — no behavior changes, all 240 tests pass.
@@ -452,3 +464,23 @@ Rewrote the MCP Server section of README.md from developer-focused (raw tool nam
 - No UserSecrets references found — clean
 
 **Key principle:** README readers are users who want to talk to their AI assistant about their portfolio. They don't care about `get_portfolio_summary` — they care about "What's my total portfolio value?" Write for that person.
+
+### Asset List Pagination Fix (2026-03-17)
+
+**Problem:** `GetAssetListAsync` was using `GetAsync` with a hardcoded `limit=100` query parameter — single-page fetch only. The Finary API returns results sorted by value descending across ALL accounts, so users with 27+ positions only got the highest-value items. Lower-value holdings were silently truncated.
+
+**Solution:** Changed from `GetAsync` to `GetPaginatedListAsync` (existing helper, already used for transactions). The helper uses `page=N&per_page=100` and loops until it receives fewer items than the page size.
+
+**Before:**
+```csharp
+return await GetAsync<List<AssetListEntry>>($"{BasePath}/asset_list?limit=100&period={period}", ct) ?? [];
+```
+
+**After:**
+```csharp
+return await GetPaginatedListAsync<AssetListEntry>($"{BasePath}/asset_list?period={period}", pageSize: 100, ct);
+```
+
+**Key learning:** Finary's `limit` parameter doesn't paginate — it just caps results. Their actual pagination uses `page` + `per_page`. The `GetPaginatedListAsync` helper already knew this pattern from transactions; I just wasn't using it for asset_list.
+
+**Build:** ✅ Clean (0 warnings, 0 errors).

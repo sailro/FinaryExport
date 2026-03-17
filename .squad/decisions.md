@@ -258,6 +258,94 @@ No XML doc comments (`///`). Use regular comments (`//`) only, sparingly, for no
 
 ---
 
+### 2026-03-17T18:45:00Z: Asset List Pagination Fix
+
+**Author:** Linus (Backend)  
+**Date:** 2026-03-17  
+**Scope:** API Client  
+**Status:** ✅ Implemented
+
+## Context
+
+`GetAssetListAsync` in `FinaryApiClient.Portfolio.cs` was fetching assets with `limit=100` — a single-page request. The Finary API returns results sorted by total value descending across ALL accounts. Users with more than ~27 positions were silently losing their lower-value holdings from exports.
+
+## Decision
+
+Changed `GetAssetListAsync` to use the existing `GetPaginatedListAsync<T>` helper (already used for transactions). This switches from `limit=100` (single fetch) to `page=N&per_page=100` (pagination loop).
+
+## Rationale
+
+- The pagination helper already exists and is battle-tested (transactions use it).
+- Finary's `limit` parameter caps results but doesn't enable pagination.
+- Finary's actual pagination uses `page` + `per_page` query parameters.
+- The helper loops until `batch.Count < pageSize`, ensuring all results are fetched.
+
+## Impact
+
+- **Fixed:** Users with 27+ total positions now get complete asset lists.
+- **No breaking changes:** Method signature unchanged, behavior improved.
+- **Future guidance:** Any new list endpoints should use `GetPaginatedListAsync`, not `GetAsync` with a `limit` parameter.
+
+## Files Changed
+
+- `src/FinaryExport.Core/Api/FinaryApiClient.Portfolio.cs`
+
+---
+
+### 2026-03-17T18:45:00Z: Full Pagination Audit — Zero Issues
+
+**Author:** Livingston (Protocol Analyst)  
+**Date:** 2026-03-17  
+**Scope:** All HTTP API call sites in FinaryExport.Core and FinaryExport.Mcp
+**Status:** ✅ Complete
+
+## Audit Results
+
+**No pagination bugs found.** The `GetAssetListAsync` issue identified by the team has already been fixed by Linus — it now uses `GetPaginatedListAsync`.
+
+## Scope
+
+- 14 API methods in `FinaryApiClient.cs` (all partials)
+- 7 MCP tool classes (all wrappers around `IFinaryApiClient`)
+- 2 decorator clients (`UnifiedFinaryApiClient`, `AutoInitFinaryApiClient`)
+
+## Key Findings
+
+| Status | Count | Details |
+|--------|-------|---------|
+| ✅ Properly paginated | 2 | `GetCategoryTransactionsAsync`, `GetAssetListAsync` |
+| ➖ Safe (bounded lists/single objects) | 12 | Accounts, timeseries, organizations, allocations, etc. |
+| ❌ Needs pagination | 0 | **None** |
+
+## Endpoints Verified Safe (No Pagination Needed)
+
+- `GetCategoryAccountsAsync` — Bounded by real-world account count (1-10 typically)
+- `GetHoldingsAccountsAsync` — Bounded by brokerage account count
+- `GetPortfolioTimeseriesAsync` / `GetCategoryTimeseriesAsync` — Bounded by time period density
+- `GetOrganizationContextAsync` / `GetAllProfilesAsync` — Bounded by memberships (1-3 typically)
+
+## MCP Tool Layer
+
+All MCP tools are pure wrappers around `IFinaryApiClient`. They make no direct HTTP calls and add no pagination limits. Pagination correctness is inherited from the underlying API client.
+
+**Verified:** UserTools, PortfolioTools, AccountTools, TransactionTools, DividendTools, HoldingsTools, AllocationTools
+
+## Future Guidance
+
+1. Any new endpoint returning `List<T>` for **transactions**, **holdings**, or **positions** should use `GetPaginatedListAsync`
+2. **Accounts** and **timeseries** endpoints are safe unpaginated
+3. Always check wire traffic for `page`/`per_page` support when adding new endpoints
+
+---
+
+### 2026-03-17T18:45:00Z: User directive — No PII in squad reports
+
+**By:** the user (via Copilot)  
+**What:** Never record PII, account numbers, real financial data, or other personally identifiable information when writing squad reports, decision files, audit documents, or any `.squad/` artifacts.  
+**Why:** User request — reinforces existing D-pii policy. Captured for team memory so all agents sanitize output.
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus
