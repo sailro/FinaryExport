@@ -57,7 +57,7 @@ These are parameterized by `AssetCategory` enum. Each maps to a per-category API
 
 | # | Method | HTTP Endpoint | Parameters | Return Type | Read/Write | MCP Tool Name | Description | Expose? |
 |---|--------|--------------|------------|-------------|------------|---------------|-------------|---------|
-| 14 | `GetAssetListAsync` | `GET .../{m}/asset_list?limit=100&period={period}` | `period` (default: `"all"`) | `List<AssetListEntry>` | Read | `finary_get_asset_list` | Get individual holdings/positions across all accounts — name, value, unrealized P&L | ✅ Yes — **high LLM value** |
+| 14 | `GetAccountPositionsAsync` | `GET .../{m}/portfolio/{category}/accounts?period={period}` (filtered by account_id) | `category`, `account_id`, `period` (default: `"all"`) | `List<SecurityPosition>` | Read | `finary_get_account_positions` | Get individual securities/positions within a specific investment account | ✅ Yes — **high LLM value** |
 | 15 | `GetHoldingsAccountsAsync` | `GET .../{m}/holdings_accounts?with_transactions=true` | — | `List<HoldingsAccount>` | Read | `finary_get_holdings_accounts` | Get all holdings accounts (cross-category account list with balances) | ✅ Yes |
 
 ---
@@ -162,7 +162,7 @@ These endpoints were observed in the traffic capture but are **not** on `IFinary
 | `DividendAssetInfo` | `DividendSummary.cs` | Asset reference within dividend |
 | `FeeSummary` | `FeeSummary.cs` | Fee analysis: totals + timeseries |
 | `FeeTotalValues` | `FeeSummary.cs` | Fee amounts/percentages (annual, cumulated, savings) |
-| `AssetListEntry` | `AssetListEntry.cs` | Individual holding: name, value, P&L, category |
+| `AssetListEntry` | `AssetListEntry.cs` | *(removed — use `SecurityPosition` from account positions instead)* |
 
 ### Namespace: `FinaryExport.Models.Transactions`
 
@@ -185,7 +185,7 @@ The `FinaryApiClient` handles pagination internally via `GetPaginatedListAsync<T
 - Only used by `GetCategoryTransactionsAsync` (default pageSize=200)
 
 ### Other List Endpoints
-All other list endpoints (`GetCategoryAccountsAsync`, `GetAssetListAsync`, `GetHoldingsAccountsAsync`, etc.) do **not** paginate — they return all results in a single call. The API returns full lists for these (typical counts: ~20 accounts, ~50 assets).
+All other list endpoints (`GetCategoryAccountsAsync`, `GetHoldingsAccountsAsync`, etc.) do **not** paginate — they return all results in a single call. The API returns full lists for these (typical counts: ~20 accounts, ~50 assets).
 
 ### MCP Implication
 **MCP tools should NOT expose pagination parameters.** The client handles pagination transparently. The MCP tool gets the full list and returns it. This is correct for the current data volumes.
@@ -283,7 +283,7 @@ finary_get_fees                  → "How much am I paying in fees?"
 finary_get_category_accounts     → "Show me my checking accounts"
 finary_get_category_timeseries   → "How have my investments performed?"
 finary_get_category_transactions → "Show me my recent transactions"
-finary_get_asset_list            → "What are my top holdings?"
+finary_get_account_positions   → "What positions are in my brokerage account?"
 finary_get_holdings_accounts     → "List all my accounts"
 ```
 

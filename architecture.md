@@ -80,7 +80,7 @@ FinaryExport.slnx
 │       ├── ApiEnvelope.cs                 # FinaryResponse<T> + FinaryError
 │       ├── AssetCategory.cs               # Enum + extension methods (ToUrlSegment, ToDisplayName, HasTransactions)
 │       ├── Accounts/                      # Account, HoldingsAccount, OwnershipEntry, SecurityInfo, SecurityPosition
-│       ├── Portfolio/                     # PortfolioSummary, TimeseriesData, DividendSummary (incl. DividendAssetInfo), AllocationData, AssetListEntry, FeeSummary
+│       ├── Portfolio/                     # PortfolioSummary, TimeseriesData, DividendSummary (incl. DividendAssetInfo), AllocationData, FeeSummary
 │       ├── Transactions/                  # Transaction, TransactionCategory
 │       └── User/                          # FinaryProfile, Membership, Organization, UserProfile, UiConfiguration, DisplayCurrencyInfo
 │
@@ -115,7 +115,7 @@ FinaryExport.slnx
 │       ├── AccountTools.cs                # get_accounts, get_all_accounts, get_category_timeseries
 │       ├── TransactionTools.cs            # get_transactions, get_all_transactions
 │       ├── DividendTools.cs               # get_dividends
-│       ├── HoldingsTools.cs               # get_holdings, get_asset_list
+│       ├── HoldingsTools.cs               # get_holdings, get_account_positions
 │       └── AllocationTools.cs             # get_geographical_allocation, get_sector_allocation
 │
 └── src/FinaryExport.Tests/                # Test project
@@ -347,7 +347,7 @@ Iterates all registered `ISheetWriter` implementations, calls `WriteAsync` on ea
 | Accounts | `AccountsSheet` | `GetCategoryAccountsAsync` (all categories) |
 | Transactions | `TransactionsSheet` | `GetCategoryTransactionsAsync` (filtered by `HasTransactions()`: checkings, savings, investments, credits). Columns include asset category and transaction category. |
 | Dividends | `DividendsSheet` | `GetPortfolioDividendsAsync` |
-| Holdings | `HoldingsSheet` | `GetHoldingsAccountsAsync`, `GetAssetListAsync` |
+| Holdings | `HoldingsSheet` | `GetHoldingsAccountsAsync` |
 
 All writers implement `ISheetWriter`:
 ```csharp
@@ -413,7 +413,7 @@ Decorator over `IFinaryApiClient` that lazily calls `GetOrganizationContextAsync
 | `AccountTools` | `get_accounts`, `get_all_accounts`, `get_category_timeseries` | Accounts by category |
 | `TransactionTools` | `get_transactions`, `get_all_transactions` | Transactions (filtered by `HasTransactions()`) |
 | `DividendTools` | `get_dividends` | Dividend income summary |
-| `HoldingsTools` | `get_holdings`, `get_asset_list` | Security positions |
+| `HoldingsTools` | `get_holdings`, `get_account_positions` | Security positions |
 | `AllocationTools` | `get_geographical_allocation`, `get_sector_allocation` | Portfolio allocation breakdowns |
 
 Tools use `[McpServerToolType]` and `[McpServerTool]` attributes for discovery via `WithToolsFromAssembly()`. Multi-category tools (e.g., `get_all_accounts`) aggregate with per-category error isolation — one failing category doesn't block the others.
@@ -522,7 +522,7 @@ Custom `ConsoleFormatter` for single-line log output. Registered when configurin
 | `DividendSummary` | `Models.Portfolio` | Dividend income aggregation (contains `DividendEntry`, `NextYearEntry`, `DividendAssetInfo`) |
 | `DividendAssetInfo` | `Models.Portfolio` | Asset metadata nested in dividend entries (id, type, name, logo) |
 | `AllocationData` | `Models.Portfolio` | Geographical/sector allocation breakdown |
-| `AssetListEntry` | `Models.Portfolio` | Top assets by value |
+
 | `FeeSummary` | `Models.Portfolio` | Fee analysis data |
 | `Transaction` | `Models.Transactions` | Buy/sell/income/expense record |
 | `TransactionCategory` | `Models.Transactions` | Category with subcategories, color, icon |

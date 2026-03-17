@@ -7,6 +7,14 @@
 - **Auth goal:** Fully autonomous auth — user provides credentials, tool handles login/token lifecycle independently
 - **Created:** 2026-03-12
 
+## Team Activity
+
+### 2026-03-17: Pagination Investigation Session
+
+Conducted full audit of API pagination implementation across 14 API methods, 7 MCP tool classes, and 2 decorator clients. Confirmed Linus's correction to `GetAssetListAsync` was correct after initial fix was wrong. Discovered no other pagination bugs. Collaborated with Linus (Backend Dev) and Saul (MCP Specialist) on investigation findings. Saul subsequently removed the fundamentally limited `get_asset_list` endpoint wrapper and added a new `get_account_positions` tool.
+
+**Orchestration log filed:** `.squad/orchestration-log/2026-03-17T1900-livingston.md`
+
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->

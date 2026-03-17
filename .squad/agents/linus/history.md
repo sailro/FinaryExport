@@ -20,7 +20,37 @@
 
 **Last Updated:** 2026-03-17 pagination fix & audit. Build: 0 warnings, 0 errors. All decisions filed in `.squad/decisions/decisions.md`.
 
+## Team Activity
+
+### 2026-03-17: Pagination Investigation Session
+
+Collaborated with Livingston (Protocol Analyst) and Saul (MCP Specialist) on comprehensive pagination audit. Discovered the root cause of `asset_list` endpoint failures: the endpoint has a fundamental hard cap (~27 items) and doesn't support true pagination parameters. Saul made the decision to remove the unreliable `get_asset_list` tool entirely and replace it with `get_account_positions` using the reliable `/portfolio/{category}/accounts` endpoint.
+
+**Orchestration logs filed:** `.squad/orchestration-log/2026-03-17T1900-linus.md`
+
 ## Learnings
+
+### Asset List Pagination Correction (2026-03-18)
+
+The previous fix (switching to `GetPaginatedListAsync`) was wrong. The `asset_list` endpoint doesn't support `page`/`per_page` pagination like the `transactions` endpoint does. It only supports `limit`.
+
+**Root cause:** When we added `page=1&per_page=100` query params, the API ignored them and returned only its default batch (5 items). The pagination loop terminated immediately because `batch.Count (5) < pageSize (100)`.
+
+**Actual fix:** Changed back to single-request fetch with `limit=1000` to ensure all positions are returned in one call.
+
+```csharp
+// Before (broken):
+return await GetPaginatedListAsync<AssetListEntry>($"{BasePath}/asset_list?period={period}", pageSize: 100, ct);
+
+// After (working):
+return await GetAsync<List<AssetListEntry>>($"{BasePath}/asset_list?limit=1000&period={period}", ct) ?? [];
+```
+
+**Key learning:** Finary has TWO different pagination patterns:
+- `transactions`: Uses `page` + `per_page` (true pagination)
+- `asset_list`: Uses `limit` only (no pagination, just caps result count)
+
+The api-analysis.md documented this: transactions show `page`/`per_page`, but asset_list shows only `limit=25`. Always check the actual endpoint docs before assuming pagination patterns are consistent.
 
 ### Asset List Pagination Fix (2026-03-17)
 
@@ -33,6 +63,8 @@ Fixed critical bug in `GetAssetListAsync` that was limiting results to 100 asset
 **Testing:** All 240 tests pass. Backward compatible — method signature unchanged.
 
 **Impact:** Paired with Livingston's full pagination audit (14 API methods, 7 MCP tools, 2 decorator clients) — no other pagination bugs found. Future guidance: all new list endpoints should use `GetPaginatedListAsync`.
+
+**⚠️ UPDATE 2026-03-18:** This fix was incorrect — see "Asset List Pagination Correction" above.
 
 ### FinaryExport.Core Extraction (2026-03-17)
 

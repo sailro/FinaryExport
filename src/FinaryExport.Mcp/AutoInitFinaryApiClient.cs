@@ -118,12 +118,6 @@ public sealed class AutoInitFinaryApiClient(FinaryApiClient inner, ILogger<AutoI
 		return await inner.GetCategoryTransactionsAsync(category, period, pageSize, ct);
 	}
 
-	public async Task<List<AssetListEntry>> GetAssetListAsync(string period = "all", CancellationToken ct = default)
-	{
-		await EnsureInitializedAsync(ct);
-		return await inner.GetAssetListAsync(period, ct);
-	}
-
 	public async Task<List<HoldingsAccount>> GetHoldingsAccountsAsync(CancellationToken ct = default)
 	{
 		await EnsureInitializedAsync(ct);

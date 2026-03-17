@@ -243,33 +243,6 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
 		};
 	}
 
-	// ── Aggregated: asset list merged by holding ID ──
-
-	public async Task<List<AssetListEntry>> GetAssetListAsync(string period = "all", CancellationToken ct = default)
-	{
-		var merged = new Dictionary<long, AssetListEntry>();
-
-		foreach (var profile in _profiles)
-		{
-			_inner.SetOrganizationContext(profile.OrgId, profile.MembershipId);
-			var entries = await _inner.GetAssetListAsync(period, ct);
-
-			foreach (var entry in entries)
-			{
-				if (entry.HoldingId is null)
-					continue;
-
-				if (!merged.TryGetValue(entry.HoldingId.Value, out var existing) ||
-					(entry.CurrentValue ?? 0m) > (existing.CurrentValue ?? 0m))
-				{
-					merged[entry.HoldingId.Value] = entry;
-				}
-			}
-		}
-
-		return [.. merged.Values];
-	}
-
 	// ── Aggregated: holdings accounts merged by ID ──
 
 	public async Task<List<HoldingsAccount>> GetHoldingsAccountsAsync(CancellationToken ct = default)

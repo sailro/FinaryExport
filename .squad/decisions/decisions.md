@@ -405,6 +405,114 @@ This tolerates clients implementing older MCP spec versions while satisfying the
 - If a client sends neither `elicitation` nor anything, the error message is still clear and actionable
 - No risk: the worst case is backfilling `Form` when the client already has it (the `??=` makes this a no-op)
 
+## Decision: Asset List Uses limit=, Not page/per_page
+
+**Author:** Linus (Backend)  
+**Date:** 2026-03-18  
+**Scope:** API Client / Pagination
+
+### Context
+
+The `asset_list` endpoint does NOT support `page`/`per_page` pagination like the `transactions` endpoint does. When those parameters were sent, the API ignored them and returned only its default batch size (~5 items).
+
+### Decision
+
+Changed `GetAssetListAsync` to use `limit=1000` (single fetch) instead of `GetPaginatedListAsync` (which uses `page`/`per_page`).
+
+### Rationale
+
+The api-analysis.md documents this difference:
+- `transactions`: `page` + `per_page` (true pagination)
+- `asset_list`: `limit` only (caps results, no offset/pagination)
+
+Using a high limit (1000) ensures all user positions are fetched in one request. This is safe because:
+1. The web app uses `limit=25` but shows a "load more" pattern
+2. Users rarely have 1000+ individual positions
+3. Single large response is more efficient than nonexistent pagination
+
+### Files Changed
+
+- `src/FinaryExport.Core/Api/FinaryApiClient.Portfolio.cs`
+
+### Future Guidance
+
+When adding new list endpoints, check the actual endpoint documentation or traffic capture to determine which pagination pattern it uses:
+- **page/per_page**: Use `GetPaginatedListAsync`
+- **limit only**: Use `GetAsync` with a high limit value
+- **No pagination**: Verify default result count is sufficient
+
+## Decision: Replace get_asset_list with get_account_positions
+
+**Author:** Saul (MCP Specialist)  
+**Date:** 2026-03-18  
+**Scope:** MCP Tools / API Client
+
+### Context
+
+The `get_asset_list` MCP tool wrapped `GetAssetListAsync()` which called the Finary `/asset_list` endpoint. This endpoint has fundamental limitations:
+- Hard cap of ~27 items regardless of `limit` parameter
+- Returns results sorted by value descending across ALL accounts
+- No reliable pagination support
+
+This made the tool unreliable for getting complete position data for any specific account — LLMs would receive truncated data with no indication it was incomplete.
+
+### Decision
+
+**Removed:**
+- `get_asset_list` MCP tool from `HoldingsTools.cs`
+- `GetAssetListAsync()` from `IFinaryApiClient`, `FinaryApiClient.Portfolio.cs`, `AutoInitFinaryApiClient.cs`, and `UnifiedFinaryApiClient.cs`
+
+**Added:**
+- `get_account_positions` MCP tool that:
+  - Takes `account_id` (required string) — matches against account ID or slug
+  - Takes `category` (optional string, defaults to "investments")
+  - Uses the reliable `GetCategoryAccountsAsync()` endpoint
+  - Filters to the specific account and returns its `Securities` array
+  - Returns error object with guidance if account not found
+
+### Rationale
+
+1. **`/portfolio/{category}/accounts` is the canonical endpoint** — the CLI export uses this and gets complete data with nested Securities arrays
+2. **The existing `get_accounts` tool already wraps this endpoint** — `get_account_positions` complements it by extracting positions for a single account
+3. **Single-account focus is what LLMs need** — when asking about a specific account's positions, receiving all accounts is noisy
+4. **Error handling guides users** — if account not found, the error message suggests using `get_accounts` to list available accounts
+
+### Impact
+
+- **Breaking:** Any MCP client using `get_asset_list` will fail. This tool was unreliable anyway — clients should use `get_accounts` for listing and `get_account_positions` for drilling into positions.
+- **Tool count:** Net zero change (removed 1, added 1). Now 15 tools total.
+- **API client:** `GetAssetListAsync` removed from all 4 client implementations (interface, concrete, auto-init decorator, unified decorator).
+- **Build/Test:** 0 errors, 0 warnings, 240/240 tests passing
+
+### Files Changed
+
+- `src/FinaryExport.Mcp/Tools/HoldingsTools.cs` — replaced tool
+- `src/FinaryExport.Core/Api/IFinaryApiClient.cs` — removed method
+- `src/FinaryExport.Core/Api/FinaryApiClient.Portfolio.cs` — removed implementation
+- `src/FinaryExport.Mcp/AutoInitFinaryApiClient.cs` — removed passthrough
+- `src/FinaryExport.Core/Api/UnifiedFinaryApiClient.cs` — removed aggregation
+
+## Decision: User Directive — Protect PII in Documentation
+
+**By:** the user (via Copilot directive)  
+**Date:** 2026-03-16T17:05:04Z  
+**Scope:** Data protection / Documentation
+
+### Summary
+
+Never use real family member names (daughters' names or any real names) in README, docs, squad logs, or any tracked files. Use generic examples like "your child's profile" or "another family member" instead.
+
+### Rationale
+
+User request — PII protection. This extends the D-pii policy to cover all documentation examples and Scribe logs.
+
+### Impact
+
+- All README examples use generic placeholders
+- Squad documentation (history, decisions, logs) uses "the user" or generic terms
+- Test data continues to use synthetic names only
+- Real names only appear in actual code comments when referencing API field names or responses
+
 ## Decision: Async Credential Prompting (MCP Auth Fix)
 
 **Author:** Saul (MCP Specialist)  

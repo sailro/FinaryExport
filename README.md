@@ -230,7 +230,7 @@ The server exposes 16 read-only tools. Most accept an optional `period` paramete
 | `get_transactions` | Transactions for a category (checkings, savings, investments, credits) |
 | `get_all_transactions` | Transactions across all supported categories |
 | `get_holdings` | Investment holdings with security positions and balances |
-| `get_asset_list` | Flat list of all positions with current value and P&L |
+| `get_account_positions` | Individual securities/positions within a specific investment account |
 | `get_dividends` | Dividend summary: annual income, yield, past and upcoming |
 | `get_geographical_allocation` | Portfolio allocation by region |
 | `get_sector_allocation` | Portfolio allocation by economic sector |

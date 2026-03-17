@@ -34,12 +34,4 @@ public sealed partial class FinaryApiClient
 	{
 		return await GetAsync<FeeSummary>($"{BasePath}/portfolio/fees?new_format=true", ct);
 	}
-
-	public async Task<List<AssetListEntry>> GetAssetListAsync(string period = "all", CancellationToken ct = default)
-	{
-		return await GetPaginatedListAsync<AssetListEntry>(
-			$"{BasePath}/asset_list?period={period}",
-			pageSize: 100,
-			ct);
-	}
 }

@@ -215,3 +215,30 @@ StringSchema password = new StringSchema();
 **Commit:** 5d2722a "fix: MCP elicitation credential prompt"
 
 **Key files:** `src/FinaryExport.Mcp/McpCredentialPrompt.cs` and `src/FinaryExport.Mcp/ElicitRequestParams.cs`
+
+### 2026-03-18: Replaced get_asset_list Tool with get_account_positions
+
+**Problem:** The `get_asset_list` MCP tool wrapped `GetAssetListAsync()` which called the `/asset_list` endpoint. This endpoint has a hard cap (~27 items max) and returns results sorted by value descending across ALL accounts — making it unreliable for getting complete position data for any specific account.
+
+**Solution:**
+1. **Deleted `get_asset_list` tool** from `HoldingsTools.cs`
+2. **Removed `GetAssetListAsync` from the API stack:**
+   - `IFinaryApiClient.cs` — removed interface method
+   - `FinaryApiClient.Portfolio.cs` — removed implementation
+   - `AutoInitFinaryApiClient.cs` — removed decorator passthrough
+   - `UnifiedFinaryApiClient.cs` — removed aggregation logic
+3. **Added `get_account_positions` tool** that:
+   - Takes `account_id` (required) and `category` (optional, defaults to "investments")
+   - Uses existing `GetCategoryAccountsAsync()` to fetch accounts for the category
+   - Filters to the account matching `account_id` (supports both ID and slug)
+   - Returns the `Securities` array (positions) for that account
+   - Returns a clear error message if account not found
+
+**Why this is better:**
+- `GetCategoryAccountsAsync()` (which calls `/portfolio/{category}/accounts`) returns full hierarchical data with nested Securities arrays — no pagination limits
+- The new tool focuses on a single account, giving LLMs exactly what they need for account-specific queries
+- The `get_accounts` tool already exists for listing accounts; `get_account_positions` complements it for drilling into positions
+
+**Build result:** 0 errors, 0 warnings, 240/240 tests passing.
+
+**Key files:** `src/FinaryExport.Mcp/Tools/HoldingsTools.cs`, `src/FinaryExport.Core/Api/IFinaryApiClient.cs`, `src/FinaryExport.Core/Api/FinaryApiClient.Portfolio.cs`
