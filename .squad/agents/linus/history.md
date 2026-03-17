@@ -21,6 +21,7 @@
 **Last Updated:** 2026-03-17 pagination fix & audit. Build: 0 warnings, 0 errors. All decisions filed in `.squad/decisions/decisions.md`.
 
 ## Learnings
+
 ### Asset List Pagination Fix (2026-03-17)
 
 Fixed critical bug in `GetAssetListAsync` that was limiting results to 100 assets per export. The method was using `limit=100` (single-page fetch) instead of paginating through results. Users with 27+ total positions lost lower-value holdings in exports.
@@ -80,6 +81,13 @@ Added transaction category enrichment to the export. Created `TransactionCategor
 ### Period Parameter Threading (2026-03-14)
 
 Threaded the CLI `--period` flag through `GetCategoryAccountsAsync` and `GetAssetListAsync`. Both previously hardcoded `period=1d`. Added `string period = "1d"` parameter (backward-compatible default) to the interface, `FinaryApiClient`, and `UnifiedFinaryApiClient`. The unified client's account cache key was updated to `(AssetCategory, string)` to correctly vary by period. Added `Period` property to `ExportContext` (default `"1d"`), set from `FinaryOptions.Period` in `Program.cs`. Sheet writers (`AccountsSheet`, `PortfolioSummarySheet`, `HoldingsSheet`) now pass `context.Period` to the API. Flow: CLI `--period` → `FinaryOptions.Period` → `ExportContext.Period` → sheet writers → API client.
+
+## Historical Context
+
+**Original Setup (2026-03-12):**
+Architecture designed with ITokenProvider abstraction, CurlImpersonate TLS bypass, DPAPI session encryption, generic host DI. Initial implementation scaffolded 49 source files: Auth (6-step Clerk flow, warm/cold start, 50s token refresh), typed API client (10 categories, rate limiting 5 req/s, 401/429 retry logic), export module (ClosedXML, 5 sheet types, per-category error isolation), CLI (export/clear-session/version commands). All 94 tests passing on day 1. Later upgraded to .NET 10 and xUnit v3, added multi-profile support with UnifiedFinaryApiClient decorator, transaction category filtering, dividend name fixes, and comprehensive data model improvements through 2026-03-15.
+
+---
 
 ### Auth Module Requirements (2026-03-12)
 Finary uses Clerk authentication with mandatory TOTP 2FA. Auth flow is 6-step process:
