@@ -405,6 +405,138 @@ This tolerates clients implementing older MCP spec versions while satisfying the
 - If a client sends neither `elicitation` nor anything, the error message is still clear and actionable
 - No risk: the worst case is backfilling `Form` when the client already has it (the `??=` makes this a no-op)
 
+## Decision: Model Consolidation — Crypto/Fiat Positions
+
+**Author:** Rusty (Lead)  
+**Date:** 2026-03-17  
+**Scope:** Models / Accounts  
+**Status:** Recommendation — ready for implementation  
+**Requested by:** Sebastien Lebreton
+
+### Problem
+
+4 model types across 3 files where 2 would suffice:
+
+| Type | File | Fields |
+|------|------|--------|
+| `CryptoInfo` | CryptoInfo.cs | Id, Name, Code, Symbol, LogoUrl |
+| `FiatInfo` | FiatPosition.cs | Id, Name, Code, Symbol, LogoUrl |
+| `CryptoPosition` | CryptoPosition.cs | Id(long?), CorrelationId, Type, OwningType, Quantity, 5 price/value pairs with Display variants, UnrealizedPnlPercent, Crypto(CryptoInfo) |
+| `FiatPosition` | FiatPosition.cs | Id(string?), CorrelationId, Type, OwningType, Quantity, 5 price/value pairs with Display variants, UnrealizedPnlPercent, Fiat(FiatInfo) |
+
+CryptoInfo and FiatInfo are **byte-for-byte identical**. CryptoPosition and FiatPosition differ in exactly two ways:
+1. `Id` type: `long?` vs `string?` (API quirk — crypto sends numeric IDs, fiat sends string IDs)
+2. Nested info property name: `Crypto` vs `Fiat` (maps to `"crypto"` and `"fiat"` in JSON)
+
+### Analysis
+
+**CryptoInfo vs FiatInfo → Identical. Merge.**
+All 5 properties match exactly. These are the same type copy-pasted with a different name.
+
+**CryptoPosition vs FiatPosition → Nearly identical. Merge with dual JSON properties.**
+All 14 financial properties are identical in name, type, and nullability. Two differences:
+1. **`Id` type mismatch** — Nobody reads position `Id` anywhere. Use `JsonElement?` to accept both JSON number and string without custom converters.
+2. **Nested info JSON key** — Keep both properties on unified type (`Crypto` and `Fiat`), add computed `Asset` accessor that returns whichever is non-null. STJ populates whichever key matches; the other stays null. No custom converter needed.
+
+**SecurityPosition → Leave alone. Too different.**
+SecurityPosition has genuinely different API shape. Unifying would create a fragile God-type.
+
+### Recommendation
+
+**New type: `AssetInfo`** (replaces CryptoInfo + FiatInfo)
+```csharp
+public sealed record AssetInfo
+{
+    public long? Id { get; init; }
+    public string? Name { get; init; }
+    public string? Code { get; init; }
+    public string? Symbol { get; init; }
+    public string? LogoUrl { get; init; }
+}
+```
+
+**New type: `CurrencyPosition`** (replaces CryptoPosition + FiatPosition)
+```csharp
+public sealed record CurrencyPosition
+{
+    public JsonElement? Id { get; init; }
+    public string? CorrelationId { get; init; }
+    public string? Type { get; init; }
+    public string? OwningType { get; init; }
+    public decimal? Quantity { get; init; }
+    // ... 9 more price/value properties (all identical)
+    public AssetInfo? Crypto { get; init; }
+    public AssetInfo? Fiat { get; init; }
+    [JsonIgnore]
+    public AssetInfo? Asset => Crypto ?? Fiat;
+}
+```
+
+**Account.cs changes:**
+```csharp
+// Before:
+public List<CryptoPosition>? Cryptos { get; init; }
+public List<FiatPosition>? Fiats { get; init; }
+
+// After:
+public List<CurrencyPosition>? Cryptos { get; init; }
+public List<CurrencyPosition>? Fiats { get; init; }
+```
+
+### Impact
+
+- Types deleted: 3 files (`CryptoInfo.cs`, `CryptoPosition.cs`, `FiatPosition.cs`)
+- Types created: 2 files (`AssetInfo.cs`, `CurrencyPosition.cs`)
+- Types removed: 4 → Types added: 2
+- Net reduction: 2 types, 1 file
+- JSON compatibility: Fully preserved — no custom converters, no behavior changes
+- SecurityPosition: Untouched
+- MCP tools: Zero references — no impact
+
+## Decision: Model Consolidation Implemented
+
+**Author:** Linus (Backend Dev)  
+**Date:** 2026-03-19  
+**Scope:** Models / Accounts  
+**Status:** Implemented  
+**Implements:** Rusty's model consolidation recommendation
+
+### What Changed
+
+Merged 4 types into 2:
+
+| Removed | Replacement |
+|---------|-------------|
+| `CryptoInfo`, `FiatInfo` | `AssetInfo` |
+| `CryptoPosition`, `FiatPosition` | `CurrencyPosition` |
+
+### Implementation Details
+
+1. **`CurrencyPosition.Id`** — Used `JsonElement?` (not `string?`). STJ cannot deserialize JSON number into `string?` without custom converter. `JsonElement?` handles both numeric (crypto) and string (fiat) IDs natively.
+
+2. **Dual JSON properties** — `CurrencyPosition` has both `Crypto` and `Fiat` properties of type `AssetInfo?`. STJ populates whichever key appears in JSON. Computed `[JsonIgnore] Asset` property returns `Crypto ?? Fiat` for consumer convenience.
+
+3. **`Account.cs`** — Both `Cryptos` and `Fiats` lists changed to `List<CurrencyPosition>?`. JSON array keys (`"cryptos"`, `"fiats"`) remain separate — only element type is shared.
+
+4. **`CryptoHoldingsSheet.cs`** — Replaced `.Crypto?.Name` and `.Fiat?.Name` with unified `.Asset?.Name` accessor.
+
+5. **Tests** — `CryptoDeserializationTests.cs` updated to deserialize into `CurrencyPosition`. `CryptoHoldingsSheetTests.cs` required zero changes.
+
+### Files Changed
+
+| Action | File |
+|--------|------|
+| Created | `AssetInfo.cs`, `CurrencyPosition.cs` |
+| Deleted | `CryptoInfo.cs`, `CryptoPosition.cs`, `FiatPosition.cs` |
+| Modified | `Account.cs`, `CryptoHoldingsSheet.cs`, `CryptoDeserializationTests.cs` |
+
+### Verification
+
+- Build: 0 errors, 0 warnings (Core + CLI)
+- Tests: 263/263 passing
+- Net reduction: 2 types, 1 file
+- JSON compatibility: Fully preserved, no custom converters
+
 ## Decision: Asset List Uses limit=, Not page/per_page
 
 **Author:** Linus (Backend)  

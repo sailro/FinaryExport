@@ -65,7 +65,71 @@ Collaborated with Livingston (Protocol Analyst) and Saul (MCP Specialist) on com
 
 **Orchestration logs filed:** `.squad/orchestration-log/2026-03-17T1900-linus.md`
 
+## Historical Archive (2026-03-12 to 2026-03-15)
+
+### Initial Implementation Sprint (2026-03-12T08:24Z)
+
+**Status:** ✅ COMPLETE — 49 source files, 94 tests passing, build clean
+
+Delivered full FinaryExport CLI scaffolding:
+- **Auth:** 6-step Clerk flow (email/password/TOTP) with warm/cold start, DPAPI encryption, 50s token refresh via PeriodicTimer
+- **API Client:** Typed endpoints for 10 AssetCategory values, rate limiting (5 req/s), 401/429 retry logic, pagination
+- **Models:** Portfolio, 10 category models, Account, Transaction, Dividend, SecurityPosition
+- **Export:** ClosedXML-based XLSX with 13 sheets (Summary, Accounts, Transactions, Dividends, Holdings, + per-category sheets)
+- **CLI:** `export`, `clear-session`, `version` commands via System.CommandLine beta
+- **Configuration:** `FinaryOptions` with `SessionStorePath`, `Output`, `Period`, `Currency`
+- **Testing:** 94 xUnit tests covering auth flows, API endpoints, error isolation, export formatting
+
+**Architecture decisions:** `FinaryOptions` uses mutable `set` (not `init`), Partial classes organize FinaryApiClient by concern, AssetCategoryExtensions for API path + display names. Session persistence via DPAPI-encrypted file (Windows-only, configurable path).
+
+**Key learnings:** Clerk responses vary by endpoint (nested envelopes). TOTP required on every login. CurlImpersonate needed for Cloudflare TLS bypass (separate HttpClient, Chrome browser headers). Warm start persists `__client` cookie (~90-day expiry) to skip 5 of 6 auth steps on subsequent runs.
+
+**Artifacts:** `.squad/orchestration-log/2026-03-12T08-24-linus.md`, `.squad/log/2026-03-12T08-24-implementation-sprint.md`
+
+### Cleanup Phase (2026-03-12 to 2026-03-15)
+
+**Status:** ✅ COMPLETE — Full suite of cleanup tasks
+
+- **Auth flow rewrite:** Changed to interactive credential prompts (removed stored credentials, Otp.NET dependency)
+- **Dividend names fix:** Typed `DividendAssetInfo` for asset metadata (replaces `JsonElement?`)
+- **Transaction category filter:** Added `HasTransactions()` extension (Checkings, Savings, Investments, Credits only support transactions)
+- **System.CommandLine upgrade:** 2.0-beta4 → 2.0.5 stable (breaking changes: `AddOption()` → `Options.Add()`, `SetHandler()` → `SetAction(ParseResult)`)
+- **xUnit v2 → v3 migration:** Added `global.json` with MTP mode, `<OutputType>Exe</OutputType>`, suppressed xUnit1051
+- **IDE diagnostics:** ~95 fixes (use `var`, remove trailing commas, invert nesting, simplify expressions, test improvements)
+- **Publish profile:** win-x64 self-contained exe (~90 MB), PublishTrimmed=false (reflection dependencies)
+- **README:** Publish instructions, troubleshooting section
+- **Data hygiene:** Removed PII references
+
+**Build:** Clean throughout. Tests: 134 → 240 passing (106 new tests added by Basher).
+
+### Cross-Platform Analysis (2026-03-14)
+
+Analyzed Windows-only blockers for Linux/macOS support. DPAPI → Microsoft.AspNetCore.DataProtection (trivial swap). CurlImpersonate has linux-x64 binaries (untested) but no macOS support (hard blocker). Recommendation: Windows + Linux x64 feasible (~1 day). macOS deferred.
+
+**Decision filed:** `.squad/decisions/inbox/rusty-cross-platform.md`
+
+### Project Reassessment (2026-03-15T21:21Z)
+
+Multi-agent team review. Five code quality fixes (dead endpoint, parameter alignment, header disambiguation, missing Accept header retry, unused dependency). Build clean, 240 tests passing, zero regressions. Supports scalable test expansion and maintainability.
+
+**Orchestration log:** `.squad/orchestration-log/2026-03-15T21-21-linus.md`
+
 ## Learnings
+
+### Model Consolidation: Crypto/Fiat → AssetInfo + CurrencyPosition (2026-03-19)
+
+Merged 4 model types into 2 per Rusty's architecture decision:
+- `CryptoInfo` + `FiatInfo` → `AssetInfo` (byte-for-byte identical types)
+- `CryptoPosition` + `FiatPosition` → `CurrencyPosition` (14 shared financial properties, only differed in Id type and nested info property name)
+
+**Key design choices:**
+- `CurrencyPosition.Id` uses `JsonElement?` (not `string?`) because the API sends numeric IDs for crypto and string UUIDs for fiat — STJ can't coerce a JSON number to `string?` without a custom converter.
+- Both `Crypto` and `Fiat` properties kept on `CurrencyPosition` — STJ populates whichever JSON key matches. Computed `Asset` property (`Crypto ?? Fiat`) gives consumers a single accessor.
+- `Account.Cryptos` and `Account.Fiats` both changed from separate list types to `List<CurrencyPosition>?`. Lists stay separate (JSON sends separate arrays), only the element type is shared.
+
+**Files:** 2 created (`AssetInfo.cs`, `CurrencyPosition.cs`), 3 deleted (`CryptoInfo.cs`, `CryptoPosition.cs`, `FiatPosition.cs`), 4 modified (`Account.cs`, `CryptoHoldingsSheet.cs`, `CryptoDeserializationTests.cs`, `CryptoHoldingsSheetTests.cs` — tests needed zero changes since `new()` infers type from list).
+
+**Build:** 0 errors, 0 warnings. **Tests:** 263/263 passing.
 
 ### Crypto Holdings Export (2026-03-19)
 
