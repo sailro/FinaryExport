@@ -5,6 +5,8 @@ using FinaryExport.Models.Transactions;
 using FinaryExport.Models.User;
 using Microsoft.Extensions.Logging;
 
+using static FinaryExport.FinaryConstants;
+
 namespace FinaryExport.Api;
 
 // Decorator that aggregates data from ALL memberships for the unified export.
@@ -52,7 +54,7 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
 
 	// ── Aggregated: accounts merged by ID across all memberships ──
 
-	public async Task<List<Account>> GetCategoryAccountsAsync(AssetCategory category, string period = "all", CancellationToken ct = default)
+	public async Task<List<Account>> GetCategoryAccountsAsync(AssetCategory category, string period = Defaults.DefaultPeriod, CancellationToken ct = default)
 	{
 		var cacheKey = (category, period);
 		if (_accountCache.TryGetValue(cacheKey, out var cached))
@@ -116,7 +118,7 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
 	// ── Aggregated: synthetic portfolio summary from merged accounts ──
 
 	public async Task<PortfolioSummary?> GetPortfolioAsync(
-		string period = "all", CancellationToken ct = default)
+		string period = Defaults.DefaultPeriod, CancellationToken ct = default)
 	{
 		// Fetch owner's portfolio for evolution metrics and metadata
 		UseOwnerContext();
@@ -178,7 +180,7 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
 	// ── Aggregated: transactions merged by ID across all memberships ──
 
 	public async Task<List<Transaction>> GetCategoryTransactionsAsync(
-		AssetCategory category, string period = "all", int pageSize = 200, CancellationToken ct = default)
+		AssetCategory category, string period = Defaults.DefaultPeriod, int pageSize = Defaults.DefaultTransactionPageSize, CancellationToken ct = default)
 	{
 		var merged = new Dictionary<long, Transaction>();
 
@@ -273,7 +275,7 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
 	// These are analysis/metadata endpoints where meaningful cross-membership
 	// aggregation isn't straightforward. The owner's view is used.
 
-	public Task<List<TimeseriesData>> GetPortfolioTimeseriesAsync(string period, string valueType = "gross", CancellationToken ct = default)
+	public Task<List<TimeseriesData>> GetPortfolioTimeseriesAsync(string period, string valueType = Defaults.DefaultValueType, CancellationToken ct = default)
 	{
 		UseOwnerContext();
 		return _inner.GetPortfolioTimeseriesAsync(period, valueType, ct);
@@ -297,7 +299,7 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
 		return _inner.GetPortfolioFeesAsync(ct);
 	}
 
-	public Task<List<TimeseriesData>> GetCategoryTimeseriesAsync(AssetCategory category, string period = "all", CancellationToken ct = default)
+	public Task<List<TimeseriesData>> GetCategoryTimeseriesAsync(AssetCategory category, string period = Defaults.DefaultPeriod, CancellationToken ct = default)
 	{
 		UseOwnerContext();
 		return _inner.GetCategoryTimeseriesAsync(category, period, ct);

@@ -2,6 +2,7 @@ using System.Net;
 using FinaryExport.Tests.Fixtures;
 using FinaryExport.Tests.Helpers;
 using FluentAssertions;
+using static FinaryExport.FinaryConstants;
 
 namespace FinaryExport.Tests.Auth;
 
@@ -17,7 +18,7 @@ public sealed class TokenRefreshServiceTests
 		var handler = new MockHttpMessageHandler()
 			.EnqueueJson(ApiFixtures.ClerkTokenResponse(newJwt));
 
-		using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://clerk.finary.com") };
+		using var httpClient = new HttpClient(handler) { BaseAddress = new Uri(ClerkBaseUrl) };
 
 		// Act: simulate a single refresh tick
 		var response = await httpClient.PostAsync(
@@ -39,7 +40,7 @@ public sealed class TokenRefreshServiceTests
 		var handler = new MockHttpMessageHandler()
 			.EnqueueError(HttpStatusCode.Unauthorized);
 
-		using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://clerk.finary.com") };
+		using var httpClient = new HttpClient(handler) { BaseAddress = new Uri(ClerkBaseUrl) };
 
 		// Act
 		var response = await httpClient.PostAsync(
@@ -58,7 +59,7 @@ public sealed class TokenRefreshServiceTests
 		var handler = new MockHttpMessageHandler()
 			.EnqueueTimeout();
 
-		using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://clerk.finary.com") };
+		using var httpClient = new HttpClient(handler) { BaseAddress = new Uri(ClerkBaseUrl) };
 
 		// Act & Assert: timeout should propagate as TaskCanceledException
 		var act = async () => await httpClient.PostAsync(
@@ -77,7 +78,7 @@ public sealed class TokenRefreshServiceTests
 			.EnqueueJson(ApiFixtures.ClerkTokenResponse("jwt_2"))
 			.EnqueueJson(ApiFixtures.ClerkTokenResponse("jwt_3"));
 
-		using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://clerk.finary.com") };
+		using var httpClient = new HttpClient(handler) { BaseAddress = new Uri(ClerkBaseUrl) };
 
 		// Act: simulate 3 refresh cycles
 		for (var i = 0; i < 3; i++)

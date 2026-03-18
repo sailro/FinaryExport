@@ -6,6 +6,8 @@ using FinaryExport.Models.Transactions;
 using FinaryExport.Models.User;
 using Microsoft.Extensions.Logging;
 
+using static FinaryExport.FinaryConstants;
+
 namespace FinaryExport.Mcp;
 
 // Decorator that auto-initializes org context on the first data call.
@@ -64,13 +66,13 @@ public sealed class AutoInitFinaryApiClient(FinaryApiClient inner, ILogger<AutoI
 
 	// Data endpoints — auto-init before delegating
 
-	public async Task<PortfolioSummary?> GetPortfolioAsync(string period = "all", CancellationToken ct = default)
+	public async Task<PortfolioSummary?> GetPortfolioAsync(string period = Defaults.DefaultPeriod, CancellationToken ct = default)
 	{
 		await EnsureInitializedAsync(ct);
 		return await inner.GetPortfolioAsync(period, ct);
 	}
 
-	public async Task<List<TimeseriesData>> GetPortfolioTimeseriesAsync(string period, string valueType = "gross", CancellationToken ct = default)
+	public async Task<List<TimeseriesData>> GetPortfolioTimeseriesAsync(string period, string valueType = Defaults.DefaultValueType, CancellationToken ct = default)
 	{
 		await EnsureInitializedAsync(ct);
 		return await inner.GetPortfolioTimeseriesAsync(period, valueType, ct);
@@ -100,19 +102,19 @@ public sealed class AutoInitFinaryApiClient(FinaryApiClient inner, ILogger<AutoI
 		return await inner.GetPortfolioFeesAsync(ct);
 	}
 
-	public async Task<List<Account>> GetCategoryAccountsAsync(AssetCategory category, string period = "all", CancellationToken ct = default)
+	public async Task<List<Account>> GetCategoryAccountsAsync(AssetCategory category, string period = Defaults.DefaultPeriod, CancellationToken ct = default)
 	{
 		await EnsureInitializedAsync(ct);
 		return await inner.GetCategoryAccountsAsync(category, period, ct);
 	}
 
-	public async Task<List<TimeseriesData>> GetCategoryTimeseriesAsync(AssetCategory category, string period = "all", CancellationToken ct = default)
+	public async Task<List<TimeseriesData>> GetCategoryTimeseriesAsync(AssetCategory category, string period = Defaults.DefaultPeriod, CancellationToken ct = default)
 	{
 		await EnsureInitializedAsync(ct);
 		return await inner.GetCategoryTimeseriesAsync(category, period, ct);
 	}
 
-	public async Task<List<Transaction>> GetCategoryTransactionsAsync(AssetCategory category, string period = "all", int pageSize = 200, CancellationToken ct = default)
+	public async Task<List<Transaction>> GetCategoryTransactionsAsync(AssetCategory category, string period = Defaults.DefaultPeriod, int pageSize = Defaults.DefaultTransactionPageSize, CancellationToken ct = default)
 	{
 		await EnsureInitializedAsync(ct);
 		return await inner.GetCategoryTransactionsAsync(category, period, pageSize, ct);

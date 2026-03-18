@@ -5,6 +5,8 @@ using FinaryExport.Models.Accounts;
 using FinaryExport.Models.Portfolio;
 using ModelContextProtocol.Server;
 
+using static FinaryExport.FinaryConstants;
+
 namespace FinaryExport.Mcp.Tools;
 
 [McpServerToolType]
@@ -13,7 +15,7 @@ public class AccountTools(IFinaryApiClient api)
 	[McpServerTool(Name = "get_accounts"), Description("Get all accounts for a specific asset category with balances, ownership, and institution details")]
 	public async Task<List<Account>> GetAccounts(
 		[Description("Asset category. Options: checkings, savings, investments, real_estates, cryptos, fonds_euro, commodities, credits, other_assets, startups")] string category,
-		[Description("Time period filter. Options: all, 1d, 1w, 1m, 3m, 6m, 1y, 5y. Default: all")] string period = "all",
+		[Description("Time period filter. Options: all, 1d, 1w, 1m, 3m, 6m, 1y, 5y. Default: all")] string period = Defaults.DefaultPeriod,
 		CancellationToken ct = default)
 	{
 		var cat = ParseCategory(category);
@@ -22,7 +24,7 @@ public class AccountTools(IFinaryApiClient api)
 
 	[McpServerTool(Name = "get_all_accounts"), Description("Get accounts across ALL asset categories in a single call, grouped by category name")]
 	public async Task<Dictionary<string, List<Account>>> GetAllAccounts(
-		[Description("Time period filter. Options: all, 1d, 1w, 1m, 3m, 6m, 1y, 5y. Default: all")] string period = "all",
+		[Description("Time period filter. Options: all, 1d, 1w, 1m, 3m, 6m, 1y, 5y. Default: all")] string period = Defaults.DefaultPeriod,
 		CancellationToken ct = default)
 	{
 		var result = new Dictionary<string, List<Account>>();
@@ -47,7 +49,7 @@ public class AccountTools(IFinaryApiClient api)
 	[McpServerTool(Name = "get_category_timeseries"), Description("Get historical value timeseries for a specific asset category")]
 	public async Task<List<TimeseriesData>> GetCategoryTimeseries(
 		[Description("Asset category. Options: checkings, savings, investments, real_estates, cryptos, fonds_euro, commodities, credits, other_assets, startups")] string category,
-		[Description("Time period filter. Options: all, 1d, 1w, 1m, 3m, 6m, 1y, 5y. Default: all")] string period = "all",
+		[Description("Time period filter. Options: all, 1d, 1w, 1m, 3m, 6m, 1y, 5y. Default: all")] string period = Defaults.DefaultPeriod,
 		CancellationToken ct = default)
 	{
 		var cat = ParseCategory(category);

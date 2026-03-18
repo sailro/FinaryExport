@@ -4,6 +4,8 @@ using System.Text.Json;
 using Loxifi.CurlImpersonate;
 using Microsoft.Extensions.Logging;
 
+using static FinaryExport.FinaryConstants;
+
 namespace FinaryExport.Auth;
 
 // Clerk authentication using curl-impersonate for TLS fingerprint bypass on clerk.finary.com.
@@ -14,8 +16,6 @@ public sealed class ClerkAuthClient(
 	ILogger<ClerkAuthClient> logger)
 	: ITokenProvider, IDisposable
 {
-	private const string ClerkBase = "https://clerk.finary.com";
-
 	private volatile string _currentJwt = "";
 	private readonly List<Cookie> _activeCookies = [];
 	private readonly SemaphoreSlim _authLock = new(1, 1);
@@ -54,9 +54,9 @@ public sealed class ClerkAuthClient(
 	// Creates a CurlClient configured for Clerk requests (Chrome TLS fingerprint + required headers).
 	private static CurlClient CreateClerkClient()
 	{
-		var client = new CurlClient(BrowserProfile.Chrome136) { UseCookies = true };
-		client.DefaultRequestHeaders["Origin"] = "https://app.finary.com";
-		client.DefaultRequestHeaders["Referer"] = "https://app.finary.com";
+		var client = new CurlClient(ImpersonationProfile) { UseCookies = true };
+		client.DefaultRequestHeaders["Origin"] = AppOrigin;
+		client.DefaultRequestHeaders["Referer"] = AppOrigin;
 		client.DefaultRequestHeaders["Accept-Encoding"] = "identity";
 		client.DefaultRequestHeaders["Accept"] = "*/*";
 		return client;
@@ -65,7 +65,7 @@ public sealed class ClerkAuthClient(
 	// Populates a CurlClient's cookie container from persisted cookies.
 	private static void LoadCookies(CurlClient client, IEnumerable<Cookie> cookies)
 	{
-		var uri = new Uri(ClerkBase);
+		var uri = new Uri(ClerkBaseUrl);
 		foreach (var cookie in cookies)
 			client.CookieContainer.Add(uri, cookie);
 	}
@@ -125,7 +125,7 @@ public sealed class ClerkAuthClient(
 
 		// Step 1: POST sign_ins
 		var signInResponse = await client.PostAsync(
-			$"{ClerkBase}/v1/client/sign_ins",
+			$"{ClerkBaseUrl}/v1/client/sign_ins",
 			new FormUrlEncodedContent([
 				new("identifier", email),
 				new("password", password)
@@ -152,7 +152,7 @@ public sealed class ClerkAuthClient(
 
 		// Step 2: POST attempt_second_factor
 		var totpResponse = await client.PostAsync(
-			$"{ClerkBase}/v1/client/sign_ins/{signInId}/attempt_second_factor",
+			$"{ClerkBaseUrl}/v1/client/sign_ins/{signInId}/attempt_second_factor",
 			new FormUrlEncodedContent([
 				new("strategy", "totp"),
 				new("code", totpCode)
@@ -228,7 +228,7 @@ public sealed class ClerkAuthClient(
 	private static async Task<string> PostTokensAsync(CurlClient client, string sessionId, CancellationToken ct)
 	{
 		var response = await client.PostAsync(
-			$"{ClerkBase}/v1/client/sessions/{sessionId}/tokens",
+			$"{ClerkBaseUrl}/v1/client/sessions/{sessionId}/tokens",
 			new FormUrlEncodedContent([]), ct);
 
 		if (response.StatusCode == HttpStatusCode.Unauthorized)
@@ -246,7 +246,7 @@ public sealed class ClerkAuthClient(
 	private void CaptureCookies(CurlClient client)
 	{
 		_activeCookies.Clear();
-		foreach (Cookie cookie in client.CookieContainer.GetCookies(new Uri(ClerkBase)))
+		foreach (Cookie cookie in client.CookieContainer.GetCookies(new Uri(ClerkBaseUrl)))
 			_activeCookies.Add(cookie);
 	}
 

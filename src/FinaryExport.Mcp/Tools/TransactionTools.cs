@@ -4,6 +4,8 @@ using FinaryExport.Models;
 using FinaryExport.Models.Transactions;
 using ModelContextProtocol.Server;
 
+using static FinaryExport.FinaryConstants;
+
 namespace FinaryExport.Mcp.Tools;
 
 [McpServerToolType]
@@ -12,7 +14,7 @@ public class TransactionTools(IFinaryApiClient api)
 	[McpServerTool(Name = "get_transactions"), Description("Get transactions for a specific asset category. Only checkings, savings, investments, and credits support transactions — other categories will return an error.")]
 	public async Task<List<Transaction>> GetTransactions(
 		[Description("Asset category. Only these support transactions: checkings, savings, investments, credits")] string category,
-		[Description("Time period filter. Options: all, 1d, 1w, 1m, 3m, 6m, 1y, 5y. Default: all")] string period = "all",
+		[Description("Time period filter. Options: all, 1d, 1w, 1m, 3m, 6m, 1y, 5y. Default: all")] string period = Defaults.DefaultPeriod,
 		CancellationToken ct = default)
 	{
 		var cat = AccountTools.ParseCategory(category);
@@ -26,7 +28,7 @@ public class TransactionTools(IFinaryApiClient api)
 
 	[McpServerTool(Name = "get_all_transactions"), Description("Get transactions across ALL transaction-capable categories (checkings, savings, investments, credits) in a single call")]
 	public async Task<List<Transaction>> GetAllTransactions(
-		[Description("Time period filter. Options: all, 1d, 1w, 1m, 3m, 6m, 1y, 5y. Default: all")] string period = "all",
+		[Description("Time period filter. Options: all, 1d, 1w, 1m, 3m, 6m, 1y, 5y. Default: all")] string period = Defaults.DefaultPeriod,
 		CancellationToken ct = default)
 	{
 		var all = new List<Transaction>();

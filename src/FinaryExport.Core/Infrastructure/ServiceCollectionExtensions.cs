@@ -3,6 +3,8 @@ using FinaryExport.Auth;
 using Loxifi.CurlImpersonate;
 using Microsoft.Extensions.DependencyInjection;
 
+using static FinaryExport.FinaryConstants;
+
 namespace FinaryExport.Infrastructure;
 
 public static class ServiceCollectionExtensions
@@ -10,7 +12,7 @@ public static class ServiceCollectionExtensions
 	public static IServiceCollection AddFinaryCore(this IServiceCollection services)
 	{
 		// CurlImpersonate client for Finary API calls (Chrome TLS fingerprint to bypass Cloudflare)
-		services.AddSingleton(_ => new CurlClient(BrowserProfile.Chrome136));
+		services.AddSingleton(_ => new CurlClient(ImpersonationProfile));
 
 		// Auth services (ClerkAuthClient uses CurlImpersonate directly for Clerk calls)
 		// NOTE: ICredentialPrompt is NOT registered here — host project must register its own implementation
@@ -24,9 +26,9 @@ public static class ServiceCollectionExtensions
 
 		// Finary API HTTP client (CurlImpersonate-backed for Cloudflare bypass)
 		services.AddTransient<FinaryDelegatingHandler>();
-		services.AddHttpClient("Finary", client =>
+		services.AddHttpClient(ApiPaths.HttpClientName, client =>
 		{
-			client.BaseAddress = new Uri("https://api.finary.com");
+			client.BaseAddress = new Uri(ApiBaseUrl);
 		})
 		.ConfigurePrimaryHttpMessageHandler(sp =>
 			new CurlMessageHandler(sp.GetRequiredService<CurlClient>()))

@@ -3,6 +3,7 @@ using FinaryExport.Auth;
 using FinaryExport.Tests.Fixtures;
 using FinaryExport.Tests.Helpers;
 using FluentAssertions;
+using static FinaryExport.FinaryConstants;
 
 namespace FinaryExport.Tests.Auth;
 
@@ -25,7 +26,7 @@ public sealed class ClerkAuthClientTests
 		var handler = new MockHttpMessageHandler()
 			.EnqueueJson(ApiFixtures.ClerkTokenResponse());
 
-		using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://clerk.finary.com") };
+		using var httpClient = new HttpClient(handler) { BaseAddress = new Uri(ClerkBaseUrl) };
 
 		// Act: auth should try warm start → single /tokens call → done
 		var session = await store.LoadSessionAsync();
@@ -61,7 +62,7 @@ public sealed class ClerkAuthClientTests
 			.EnqueueJson(ApiFixtures.ClerkSecondFactorResponse())
 			.EnqueueJson(ApiFixtures.ClerkTokenResponse());
 
-		using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://clerk.finary.com") };
+		using var httpClient = new HttpClient(handler) { BaseAddress = new Uri(ClerkBaseUrl) };
 
 		// Act: simulate warm start failure → cold start fallback
 		var session = await store.LoadSessionAsync();
@@ -129,7 +130,7 @@ public sealed class ClerkAuthClientTests
 			.EnqueueJson(ApiFixtures.ClerkSecondFactorResponse("sess_new_789"))
 			.EnqueueJson(ApiFixtures.ClerkTokenResponse());
 
-		using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://clerk.finary.com") };
+		using var httpClient = new HttpClient(handler) { BaseAddress = new Uri(ClerkBaseUrl) };
 
 		// Act: execute simplified 3-step flow
 		var signInResp = await httpClient.PostAsync("/v1/client/sign_ins",
@@ -170,7 +171,7 @@ public sealed class ClerkAuthClientTests
 		var handler = new MockHttpMessageHandler()
 			.EnqueueJson(ApiFixtures.ClerkSignInInvalidPasswordResponse, HttpStatusCode.UnprocessableEntity);
 
-		using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://clerk.finary.com") };
+		using var httpClient = new HttpClient(handler) { BaseAddress = new Uri(ClerkBaseUrl) };
 
 		// Act
 		var signInResp = await httpClient.PostAsync("/v1/client/sign_ins",
@@ -196,7 +197,7 @@ public sealed class ClerkAuthClientTests
 			.EnqueueJson(ApiFixtures.ClerkSignInResponse())
 			.EnqueueJson(ApiFixtures.ClerkInvalidTotpResponse, HttpStatusCode.UnprocessableEntity);
 
-		using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://clerk.finary.com") };
+		using var httpClient = new HttpClient(handler) { BaseAddress = new Uri(ClerkBaseUrl) };
 
 		// Act
 		await httpClient.PostAsync("/v1/client/sign_ins",

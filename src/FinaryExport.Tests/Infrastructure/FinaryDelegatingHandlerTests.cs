@@ -7,6 +7,7 @@ using FinaryExport.Tests.Helpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using static FinaryExport.FinaryConstants;
 
 namespace FinaryExport.Tests.Infrastructure;
 
@@ -36,7 +37,7 @@ public sealed class FinaryDelegatingHandlerTests
 			.ReturnsAsync("test-jwt-token");
 
 		using var handler = CreateHandler(tokenMock, inner);
-		using var client = new HttpClient(handler) { BaseAddress = new Uri("https://api.finary.com") };
+		using var client = new HttpClient(handler) { BaseAddress = new Uri(ApiBaseUrl) };
 
 		await client.GetAsync("/test");
 
@@ -63,7 +64,7 @@ public sealed class FinaryDelegatingHandlerTests
 			.ReturnsAsync(() => ++callCount == 1 ? "old-token" : "refreshed-token");
 
 		using var handler = CreateHandler(tokenMock, inner);
-		using var client = new HttpClient(handler) { BaseAddress = new Uri("https://api.finary.com") };
+		using var client = new HttpClient(handler) { BaseAddress = new Uri(ApiBaseUrl) };
 
 		var response = await client.GetAsync("/data");
 
@@ -88,7 +89,7 @@ public sealed class FinaryDelegatingHandlerTests
 			.ReturnsAsync("jwt");
 
 		using var handler = CreateHandler(tokenMock, inner);
-		using var client = new HttpClient(handler) { BaseAddress = new Uri("https://api.finary.com") };
+		using var client = new HttpClient(handler) { BaseAddress = new Uri(ApiBaseUrl) };
 
 		var response = await client.GetAsync("/limited");
 
@@ -113,7 +114,7 @@ public sealed class FinaryDelegatingHandlerTests
 		}
 
 		using var handler = CreateHandler(tokenMock, inner);
-		using var client = new HttpClient(handler) { BaseAddress = new Uri("https://api.finary.com") };
+		using var client = new HttpClient(handler) { BaseAddress = new Uri(ApiBaseUrl) };
 
 		var response = await client.GetAsync("/flood");
 
@@ -133,7 +134,7 @@ public sealed class FinaryDelegatingHandlerTests
 			.ReturnsAsync("jwt");
 
 		using var handler = CreateHandler(tokenMock, inner);
-		using var client = new HttpClient(handler) { BaseAddress = new Uri("https://api.finary.com") };
+		using var client = new HttpClient(handler) { BaseAddress = new Uri(ApiBaseUrl) };
 
 		var response = await client.GetAsync("/ok");
 

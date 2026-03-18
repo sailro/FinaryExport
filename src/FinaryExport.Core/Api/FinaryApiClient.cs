@@ -3,6 +3,8 @@ using FinaryExport.Models;
 using FinaryExport.Models.User;
 using Microsoft.Extensions.Logging;
 
+using static FinaryExport.FinaryConstants;
+
 namespace FinaryExport.Api;
 
 // Finary API client. Split into partial classes by concern.
@@ -19,14 +21,14 @@ public sealed partial class FinaryApiClient(IHttpClientFactory httpClientFactory
 	private string? _orgId;
 	private string? _membershipId;
 
-	private HttpClient CreateClient() => httpClientFactory.CreateClient("Finary");
+	private HttpClient CreateClient() => httpClientFactory.CreateClient(ApiPaths.HttpClientName);
 
 	private string BasePath => $"/organizations/{_orgId}/memberships/{_membershipId}";
 
 	public async Task<(string OrgId, string MembershipId)> GetOrganizationContextAsync(CancellationToken ct)
 	{
 		var client = CreateClient();
-		var response = await client.GetAsync("/users/me/organizations", ct);
+		var response = await client.GetAsync(ApiPaths.UsersOrganizationsPath, ct);
 		response.EnsureSuccessStatusCode();
 
 		var body = await response.Content.ReadAsStringAsync(ct);
@@ -53,7 +55,7 @@ public sealed partial class FinaryApiClient(IHttpClientFactory httpClientFactory
 	public async Task<List<FinaryProfile>> GetAllProfilesAsync(CancellationToken ct)
 	{
 		var client = CreateClient();
-		var response = await client.GetAsync("/users/me/organizations", ct);
+		var response = await client.GetAsync(ApiPaths.UsersOrganizationsPath, ct);
 		response.EnsureSuccessStatusCode();
 
 		var body = await response.Content.ReadAsStringAsync(ct);
@@ -129,6 +131,6 @@ public sealed partial class FinaryApiClient(IHttpClientFactory httpClientFactory
 
 	public async Task<UserProfile?> GetCurrentUserAsync(CancellationToken ct)
 	{
-		return await GetAsync<UserProfile>("/users/me", ct);
+		return await GetAsync<UserProfile>(ApiPaths.CurrentUserPath, ct);
 	}
 }

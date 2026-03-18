@@ -3,6 +3,7 @@ using FinaryExport.Models;
 using FinaryExport.Tests.Fixtures;
 using FinaryExport.Tests.Helpers;
 using FluentAssertions;
+using static FinaryExport.FinaryConstants;
 
 namespace FinaryExport.Tests.Api;
 
@@ -13,7 +14,7 @@ public sealed class FinaryApiClientTests
 {
 	private static HttpClient CreateClient(MockHttpMessageHandler handler)
 	{
-		return new HttpClient(handler) { BaseAddress = new Uri("https://api.finary.com") };
+		return new HttpClient(handler) { BaseAddress = new Uri(ApiBaseUrl) };
 	}
 
 	// ================================================================
@@ -33,10 +34,10 @@ public sealed class FinaryApiClientTests
 		// Act: simulate request with auth header (as FinaryDelegatingHandler would add)
 		var request = new HttpRequestMessage(HttpMethod.Get, "/organizations/org1/memberships/m1/portfolio?new_format=true&period=all");
 		request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-		request.Headers.Add("Origin", "https://app.finary.com");
-		request.Headers.Add("Referer", "https://app.finary.com/");
-		request.Headers.Add("x-client-api-version", "2");
-		request.Headers.Add("x-finary-client-id", "webapp");
+		request.Headers.Add("Origin", AppOrigin);
+		request.Headers.Add("Referer", $"{AppOrigin}/");
+		request.Headers.Add(Headers.ApiVersionHeader, Headers.ApiVersionValue);
+		request.Headers.Add(Headers.ClientIdHeader, Headers.ClientIdValue);
 
 		await httpClient.SendAsync(request);
 
@@ -57,7 +58,7 @@ public sealed class FinaryApiClientTests
 			.EnqueueJson(ApiFixtures.UserProfileResponse);
 
 		using var httpClient = CreateClient(handler);
-		await httpClient.GetAsync("/users/me");
+		await httpClient.GetAsync(ApiPaths.CurrentUserPath);
 
 		handler.SentRequests[0].RequestUri!.Host.Should().Be("api.finary.com");
 		handler.SentRequests[0].RequestUri!.Scheme.Should().Be("https");
@@ -74,7 +75,7 @@ public sealed class FinaryApiClientTests
 			.EnqueueJson(ApiFixtures.OrganizationsResponse);
 
 		using var httpClient = CreateClient(handler);
-		var response = await httpClient.GetAsync("/users/me/organizations");
+		var response = await httpClient.GetAsync(ApiPaths.UsersOrganizationsPath);
 		var json = await response.Content.ReadAsStringAsync();
 
 		response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -196,7 +197,7 @@ public sealed class FinaryApiClientTests
 			.EnqueueJson(ApiFixtures.UserProfileResponse);
 
 		using var httpClient = CreateClient(handler);
-		var response = await httpClient.GetAsync("/users/me");
+		var response = await httpClient.GetAsync(ApiPaths.CurrentUserPath);
 		var json = await response.Content.ReadAsStringAsync();
 
 		response.StatusCode.Should().Be(HttpStatusCode.OK);

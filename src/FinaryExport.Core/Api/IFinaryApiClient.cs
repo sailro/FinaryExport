@@ -3,6 +3,8 @@ using FinaryExport.Models.Portfolio;
 using FinaryExport.Models.Transactions;
 using FinaryExport.Models.User;
 
+using static FinaryExport.FinaryConstants;
+
 namespace FinaryExport.Api;
 
 public interface IFinaryApiClient
@@ -17,17 +19,17 @@ public interface IFinaryApiClient
 	void SetOrganizationContext(string orgId, string membershipId);
 
 	// Portfolio
-	Task<PortfolioSummary?> GetPortfolioAsync(string period = "all", CancellationToken ct = default);
-	Task<List<TimeseriesData>> GetPortfolioTimeseriesAsync(string period, string valueType = "gross", CancellationToken ct = default);
+	Task<PortfolioSummary?> GetPortfolioAsync(string period = Defaults.DefaultPeriod, CancellationToken ct = default);
+	Task<List<TimeseriesData>> GetPortfolioTimeseriesAsync(string period, string valueType = Defaults.DefaultValueType, CancellationToken ct = default);
 	Task<DividendSummary?> GetPortfolioDividendsAsync(CancellationToken ct = default);
 	Task<AllocationData?> GetGeographicalAllocationAsync(CancellationToken ct = default);
 	Task<AllocationData?> GetSectorAllocationAsync(CancellationToken ct = default);
 	Task<FeeSummary?> GetPortfolioFeesAsync(CancellationToken ct = default);
 
 	// Category-generic endpoints
-	Task<List<Account>> GetCategoryAccountsAsync(Models.AssetCategory category, string period = "all", CancellationToken ct = default);
-	Task<List<TimeseriesData>> GetCategoryTimeseriesAsync(Models.AssetCategory category, string period = "all", CancellationToken ct = default);
-	Task<List<Transaction>> GetCategoryTransactionsAsync(Models.AssetCategory category, string period = "all", int pageSize = 200, CancellationToken ct = default);
+	Task<List<Account>> GetCategoryAccountsAsync(Models.AssetCategory category, string period = Defaults.DefaultPeriod, CancellationToken ct = default);
+	Task<List<TimeseriesData>> GetCategoryTimeseriesAsync(Models.AssetCategory category, string period = Defaults.DefaultPeriod, CancellationToken ct = default);
+	Task<List<Transaction>> GetCategoryTransactionsAsync(Models.AssetCategory category, string period = Defaults.DefaultPeriod, int pageSize = Defaults.DefaultTransactionPageSize, CancellationToken ct = default);
 
 	// Cross-cutting
 	Task<List<HoldingsAccount>> GetHoldingsAccountsAsync(CancellationToken ct = default);

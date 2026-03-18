@@ -1,15 +1,17 @@
 using FinaryExport.Models.Portfolio;
 
+using static FinaryExport.FinaryConstants;
+
 namespace FinaryExport.Api;
 
 public sealed partial class FinaryApiClient
 {
-	public async Task<PortfolioSummary?> GetPortfolioAsync(string period = "all", CancellationToken ct = default)
+	public async Task<PortfolioSummary?> GetPortfolioAsync(string period = Defaults.DefaultPeriod, CancellationToken ct = default)
 	{
 		return await GetAsync<PortfolioSummary>($"{BasePath}/portfolio?new_format=true&period={period}", ct);
 	}
 
-	public async Task<List<TimeseriesData>> GetPortfolioTimeseriesAsync(string period, string valueType = "gross", CancellationToken ct = default)
+	public async Task<List<TimeseriesData>> GetPortfolioTimeseriesAsync(string period, string valueType = Defaults.DefaultValueType, CancellationToken ct = default)
 	{
 		return await GetAsync<List<TimeseriesData>>($"{BasePath}/portfolio/timeseries?new_format=true&period={period}&timeseries_type=sum&value_type={valueType}", ct)
 			?? [];

@@ -2,6 +2,8 @@
 using FinaryExport.Auth;
 using Microsoft.Extensions.Logging;
 
+using static FinaryExport.FinaryConstants;
+
 namespace FinaryExport.Infrastructure;
 
 // Adds required headers to every Finary API request:
@@ -19,12 +21,7 @@ public sealed class FinaryDelegatingHandler(
 		await rateLimiter.WaitAsync(cancellationToken);
 
 		var token = await tokenProvider.GetTokenAsync(cancellationToken);
-		request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-		request.Headers.TryAddWithoutValidation("Origin", "https://app.finary.com");
-		request.Headers.TryAddWithoutValidation("Referer", "https://app.finary.com/");
-		request.Headers.TryAddWithoutValidation("x-client-api-version", "2");
-		request.Headers.TryAddWithoutValidation("x-finary-client-id", "webapp");
-		request.Headers.TryAddWithoutValidation("Accept", "*/*");
+		SetFinaryHeaders(request, token);
 
 		var response = await base.SendAsync(request, cancellationToken);
 
@@ -58,15 +55,20 @@ public sealed class FinaryDelegatingHandler(
 		return response;
 	}
 
+	private static void SetFinaryHeaders(HttpRequestMessage request, string token)
+	{
+		request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+		request.Headers.TryAddWithoutValidation("Origin", AppOrigin);
+		request.Headers.TryAddWithoutValidation("Referer", $"{AppOrigin}/");
+		request.Headers.TryAddWithoutValidation(Headers.ApiVersionHeader, Headers.ApiVersionValue);
+		request.Headers.TryAddWithoutValidation(Headers.ClientIdHeader, Headers.ClientIdValue);
+		request.Headers.TryAddWithoutValidation("Accept", "*/*");
+	}
+
 	private static HttpRequestMessage CloneRequest(HttpRequestMessage original, string token)
 	{
 		var clone = new HttpRequestMessage(original.Method, original.RequestUri);
-		clone.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-		clone.Headers.TryAddWithoutValidation("Origin", "https://app.finary.com");
-		clone.Headers.TryAddWithoutValidation("Referer", "https://app.finary.com/");
-		clone.Headers.TryAddWithoutValidation("x-client-api-version", "2");
-		clone.Headers.TryAddWithoutValidation("x-finary-client-id", "webapp");
-		clone.Headers.TryAddWithoutValidation("Accept", "*/*");
+		SetFinaryHeaders(clone, token);
 
 		if (original.Content is not null)
 			clone.Content = original.Content;
