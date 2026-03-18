@@ -242,3 +242,29 @@ StringSchema password = new StringSchema();
 **Build result:** 0 errors, 0 warnings, 240/240 tests passing.
 
 **Key files:** `src/FinaryExport.Mcp/Tools/HoldingsTools.cs`, `src/FinaryExport.Core/Api/IFinaryApiClient.cs`, `src/FinaryExport.Core/Api/FinaryApiClient.Portfolio.cs`
+
+### 2026-03-19: Category-Aware get_account_positions + New get_crypto_holdings Tool
+
+**Problem 1:** `get_account_positions` always returned `account.Securities ?? []` regardless of the category parameter. Crypto accounts have positions in `Cryptos` and `Fiats`, not `Securities`. Checking/savings accounts use `Fiats`.
+
+**Fix:** Added a `cat switch` expression to select the right position list:
+- `AssetCategory.Cryptos` → `account.Cryptos ?? []`
+- `AssetCategory.Checkings` or `AssetCategory.Savings` → `account.Fiats ?? []`
+- Everything else → `account.Securities ?? []`
+
+The return type was already `object` so no signature change needed.
+
+**Problem 2:** No dedicated tool for querying crypto portfolio across all accounts.
+
+**Solution:** Added `get_crypto_holdings` tool that:
+- Calls `GetCategoryAccountsAsync(AssetCategory.Cryptos)` to fetch all crypto accounts
+- Flattens both `Cryptos` and `Fiats` from every account into a unified list
+- Maps each `CurrencyPosition` via `MapCurrencyPosition()` helper using the `Asset` computed property (`Crypto ?? Fiat`)
+- Returns: account_name, name, code, quantity, current_price, current_value, buying_price, buying_value, unrealized_pnl, unrealized_pnl_percent
+- Includes total_value summary computed from source `CurrencyPosition` objects (not from mapped anonymous types — anonymous types returned as `object` lose property access at compile time)
+
+**Build gotcha:** `MapCurrencyPosition` returns `object` (anonymous type). LINQ `.Sum(p => p.current_value)` fails because anonymous type properties aren't accessible through `object`. Fix: compute `totalValue` from the source `CurrencyPosition` list before mapping.
+
+**Build result:** 0 errors, 0 warnings (both Core and MCP).
+
+**Key file:** `src/FinaryExport.Mcp/Tools/HoldingsTools.cs`

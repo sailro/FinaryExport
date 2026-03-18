@@ -6,7 +6,7 @@ namespace FinaryExport.Tests.Api;
 
 public sealed class CryptoDeserializationTests
 {
-	private static readonly JsonSerializerOptions JsonOptions = new()
+	private static readonly JsonSerializerOptions _jsonOptions = new()
 	{
 		PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
 		PropertyNameCaseInsensitive = true
@@ -29,7 +29,7 @@ public sealed class CryptoDeserializationTests
 		}
 		""";
 
-		var pos = JsonSerializer.Deserialize<CurrencyPosition>(json, JsonOptions)!;
+		var pos = JsonSerializer.Deserialize<CurrencyPosition>(json, _jsonOptions)!;
 
 		pos.CorrelationId.Should().Be("BTC");
 		pos.Quantity.Should().Be(0.33456374m);
@@ -52,7 +52,7 @@ public sealed class CryptoDeserializationTests
 		}
 		""";
 
-		var pos = JsonSerializer.Deserialize<CurrencyPosition>(json, JsonOptions)!;
+		var pos = JsonSerializer.Deserialize<CurrencyPosition>(json, _jsonOptions)!;
 
 		pos.Crypto.Should().NotBeNull();
 		pos.Crypto!.Name.Should().Be("Ethereum");
@@ -97,7 +97,7 @@ public sealed class CryptoDeserializationTests
 		}
 		""";
 
-		var account = JsonSerializer.Deserialize<Account>(json, JsonOptions)!;
+		var account = JsonSerializer.Deserialize<Account>(json, _jsonOptions)!;
 
 		account.Id.Should().Be("acct_crypto_1");
 		account.Name.Should().Be("Binance");
@@ -120,7 +120,7 @@ public sealed class CryptoDeserializationTests
 		}
 		""";
 
-		var account = JsonSerializer.Deserialize<Account>(json, JsonOptions)!;
+		var account = JsonSerializer.Deserialize<Account>(json, _jsonOptions)!;
 
 		account.Cryptos.Should().NotBeNull();
 		account.Cryptos.Should().BeEmpty();
@@ -137,7 +137,7 @@ public sealed class CryptoDeserializationTests
 		}
 		""";
 
-		var account = JsonSerializer.Deserialize<Account>(json, JsonOptions)!;
+		var account = JsonSerializer.Deserialize<Account>(json, _jsonOptions)!;
 
 		account.Cryptos.Should().BeNull();
 	}
@@ -153,7 +153,7 @@ public sealed class CryptoDeserializationTests
 		}
 		""";
 
-		var pos = JsonSerializer.Deserialize<CurrencyPosition>(json, JsonOptions)!;
+		var pos = JsonSerializer.Deserialize<CurrencyPosition>(json, _jsonOptions)!;
 
 		pos.Quantity.Should().BeNull();
 		pos.Crypto!.Name.Should().Be("Dogecoin");
@@ -173,7 +173,7 @@ public sealed class CryptoDeserializationTests
 		}
 		""";
 
-		var pos = JsonSerializer.Deserialize<CurrencyPosition>(json, JsonOptions)!;
+		var pos = JsonSerializer.Deserialize<CurrencyPosition>(json, _jsonOptions)!;
 
 		pos.Quantity.Should().Be(0m);
 		pos.CurrentValue.Should().Be(0m);
@@ -194,7 +194,7 @@ public sealed class CryptoDeserializationTests
 		}
 		""";
 
-		var pos = JsonSerializer.Deserialize<CurrencyPosition>(json, JsonOptions)!;
+		var pos = JsonSerializer.Deserialize<CurrencyPosition>(json, _jsonOptions)!;
 
 		pos.Quantity.Should().BeGreaterThan(0m);
 		pos.Quantity.Should().BeLessThan(0.0001m);
@@ -213,7 +213,7 @@ public sealed class CryptoDeserializationTests
 		}
 		""";
 
-		var pos = JsonSerializer.Deserialize<CurrencyPosition>(json, JsonOptions)!;
+		var pos = JsonSerializer.Deserialize<CurrencyPosition>(json, _jsonOptions)!;
 
 		pos.CorrelationId.Should().Be("UNKNOWN");
 		pos.Quantity.Should().Be(100.0m);
@@ -241,7 +241,7 @@ public sealed class CryptoDeserializationTests
 		}
 		""";
 
-		var pos = JsonSerializer.Deserialize<CurrencyPosition>(json, JsonOptions)!;
+		var pos = JsonSerializer.Deserialize<CurrencyPosition>(json, _jsonOptions)!;
 
 		// Raw values
 		pos.BuyingPrice.Should().Be(50000.00m);
@@ -275,7 +275,7 @@ public sealed class CryptoDeserializationTests
 		}
 		""";
 
-		var pos = JsonSerializer.Deserialize<CurrencyPosition>(json, JsonOptions)!;
+		var pos = JsonSerializer.Deserialize<CurrencyPosition>(json, _jsonOptions)!;
 
 		pos.UnrealizedPnl.Should().BeNegative();
 		pos.UnrealizedPnlPercent.Should().BeLessThan(-99m);
@@ -307,7 +307,7 @@ public sealed class CryptoDeserializationTests
 
 		using var doc = JsonDocument.Parse(json);
 		var resultElement = doc.RootElement.GetProperty("result");
-		var accounts = JsonSerializer.Deserialize<List<Account>>(resultElement.GetRawText(), JsonOptions)!;
+		var accounts = JsonSerializer.Deserialize<List<Account>>(resultElement.GetRawText(), _jsonOptions)!;
 
 		accounts.Should().HaveCount(1);
 		accounts[0].Cryptos.Should().HaveCount(1);
