@@ -113,6 +113,10 @@ Each account sheet has columns: **Name**, **Institution**, **Balance**, **Native
 
 Individual security positions from investment accounts: **Account**, **Name**, **ISIN**, **Symbol**, **Type**, **Quantity**, **Buy Price**, **Current Price**, **Value**, **+/- Value**, **+/- %**.
 
+### Crypto Holdings
+
+Individual cryptocurrency and fiat positions held in crypto accounts: **Account**, **Name**, **Code**, **Quantity**, **Buy Price**, **Current Price**, **Value**, **Buy Value**, **+/- Value**, **+/- %**. Includes both crypto coins and fiat balances held within crypto accounts.
+
 ### Transactions
 
 Buy/sell/income/expense records across checking, savings, investment, and credit accounts: **Category**, **Date**, **Name**, **Value**, **Type**, **Account**, **Institution**, **Native Currency**, **Commission**, **Transaction Category**.
@@ -230,7 +234,8 @@ The server exposes 16 read-only tools. Most accept an optional `period` paramete
 | `get_transactions` | Transactions for a category (checkings, savings, investments, credits) |
 | `get_all_transactions` | Transactions across all supported categories |
 | `get_holdings` | Investment holdings with security positions and balances |
-| `get_account_positions` | Individual securities/positions within a specific investment account |
+| `get_account_positions` | Individual positions (securities, crypto, or fiat) within a specific account, category-aware |
+| `get_crypto_holdings` | All crypto + fiat positions across all crypto accounts with logo URLs and totals |
 | `get_dividends` | Dividend summary: annual income, yield, past and upcoming |
 | `get_geographical_allocation` | Portfolio allocation by region |
 | `get_sector_allocation` | Portfolio allocation by economic sector |

@@ -52,6 +52,7 @@ FinaryExport.slnx
 │
 ├── src/FinaryExport.Core/                 # Shared class library (RootNamespace=FinaryExport)
 │   ├── FinaryExport.Core.csproj
+│   ├── FinaryConstants.cs                 # Centralized constants: ApiPaths, Headers, Defaults
 │   ├── Api/
 │   │   ├── IFinaryApiClient.cs            # API contract
 │   │   ├── FinaryApiClient.cs             # Partial class: core setup, org context, pagination
@@ -347,7 +348,8 @@ Iterates all registered `ISheetWriter` implementations, calls `WriteAsync` on ea
 | Accounts | `AccountsSheet` | `GetCategoryAccountsAsync` (all categories) |
 | Transactions | `TransactionsSheet` | `GetCategoryTransactionsAsync` (filtered by `HasTransactions()`: checkings, savings, investments, credits). Columns include asset category and transaction category. |
 | Dividends | `DividendsSheet` | `GetPortfolioDividendsAsync` |
-| Holdings | `HoldingsSheet` | `GetHoldingsAccountsAsync` |
+| Holdings | `HoldingsSheet` | `GetHoldingsAccountsAsync` — individual securities from investment accounts |
+| Crypto Holdings | `CryptoHoldingsSheet` | `GetCategoryAccountsAsync(Cryptos)` — individual crypto coins and fiat balances from crypto accounts |
 
 All writers implement `ISheetWriter`:
 ```csharp
@@ -404,7 +406,7 @@ Decorator over `IFinaryApiClient` that lazily calls `GetOrganizationContextAsync
 
 ### Tool Catalog
 
-15 tools across 7 tool classes, all read-only:
+16 tools across 7 tool classes, all read-only:
 
 | Class | Tools | Description |
 |-------|-------|-------------|
@@ -413,10 +415,10 @@ Decorator over `IFinaryApiClient` that lazily calls `GetOrganizationContextAsync
 | `AccountTools` | `get_accounts`, `get_all_accounts`, `get_category_timeseries` | Accounts by category |
 | `TransactionTools` | `get_transactions`, `get_all_transactions` | Transactions (filtered by `HasTransactions()`) |
 | `DividendTools` | `get_dividends` | Dividend income summary |
-| `HoldingsTools` | `get_holdings`, `get_account_positions` | Security positions |
+| `HoldingsTools` | `get_holdings`, `get_account_positions`, `get_crypto_holdings` | Security positions and crypto holdings |
 | `AllocationTools` | `get_geographical_allocation`, `get_sector_allocation` | Portfolio allocation breakdowns |
 
-Tools use `[McpServerToolType]` and `[McpServerTool]` attributes for discovery via `WithToolsFromAssembly()`. Multi-category tools (e.g., `get_all_accounts`) aggregate with per-category error isolation — one failing category doesn't block the others.
+Tools use `[McpServerToolType]` and `[McpServerTool]` attributes for discovery via `WithToolsFromAssembly()`. Multi-category tools (e.g., `get_all_accounts`) aggregate with per-category error isolation — one failing category doesn't block the others. `get_account_positions` is category-aware: returns securities for investment accounts, crypto/fiat positions for crypto accounts. `get_crypto_holdings` returns all crypto + fiat positions across all profiles with metadata.
 
 ### DI Registration (MCP)
 
@@ -469,6 +471,16 @@ public sealed class FinaryOptions
 
 CLI option `--output` overrides the `appsettings.json` value.
 
+### FinaryConstants
+
+Centralized constants file with nested static classes:
+
+- **`FinaryConstants.ApiPaths`** — API endpoint paths: `HttpClientName`, `UsersOrganizationsPath`, `CurrentUserPath`
+- **`FinaryConstants.Headers`** — HTTP header names and values: `ApiVersionHeader`, `ApiVersionValue`, `ClientIdHeader`, `ClientIdValue`
+- **`FinaryConstants.Defaults`** — Export defaults: `DefaultPeriod`, `DefaultValueType`, `DefaultTransactionPageSize`
+
+Used throughout Core (API client), CLI, MCP server, and tests. Eliminates hardcoded strings and enables single-point updates.
+
 ---
 
 ## 11. Infrastructure
@@ -515,7 +527,11 @@ Custom `ConsoleFormatter` for single-line log output. Registered when configurin
 |------|-----------|---------|
 | `Account` | `Models.Accounts` | Bank/investment account with balances, ownership, nested positions |
 | `OwnershipEntry` | `Models.Accounts` | Share percentage + membership for ownership scaling |
-| `SecurityPosition` | `Models.Accounts` | Individual security holding within an account |
+| `SecurityPosition` | `Models.Accounts` | Individual security holding within an investment account |
+| `CryptoPosition` | `Models.Accounts` | Individual cryptocurrency coin position within a crypto account |
+| `FiatPosition` | `Models.Accounts` | Fiat balance (cash) held within a crypto account |
+| `CurrencyPosition` | `Models.Accounts` | Union type: `SecurityPosition \| CryptoPosition \| FiatPosition` for consolidated API responses |
+| `AssetInfo` | `Models.Accounts` | Consolidated metadata: `SecurityInfo \| CryptoInfo \| FiatInfo` |
 | `HoldingsAccount` | `Models.Accounts` | Simplified account from holdings endpoint |
 | `PortfolioSummary` | `Models.Portfolio` | Overall portfolio value and allocation data |
 | `TimeseriesData` | `Models.Portfolio` | Historical value data points |
