@@ -20,9 +20,23 @@
 
 **Test Execution:** Full suite runs clean with no timeouts or race conditions. Mock HTTP prevents real network calls. Integration tests verify full export workflows (login → fetch → export).
 
-**Last Updated:** 2026-03-15 reassessment. All agents delivered on-time with zero regressions.
+**Last Updated:** 2026-03-18 constants extraction. Build: 0 warnings, 0 errors. All decisions filed in `.squad/decisions/decisions.md`.
 
 ## Learnings
+
+### Constants Extraction & Test Fixture Updates (2026-03-18)
+
+Updated 4 test files to use `FinaryConstants` shared values instead of hardcoded URLs, paths, and headers:
+- `FinaryDelegatingHandlerTests.cs` — authorization header patterns
+- `ClerkAuthClientTests.cs` — API endpoint paths, content-type headers
+- `UnifiedFinaryApiClientTests.cs` — HttpClientName, headers
+- `FinaryApiClientTests.cs` — portfolio paths, pagination defaults
+
+**Pattern:** Test fixtures (FakeApiClient, MockHttpMessageHandler setup) now reference `ApiPaths.*`, `Headers.*`, `Defaults.*`. Assertions themselves remain hardcoded with expected values (not constants) to ensure tests independently validate behavior rather than just comparing against shared definitions.
+
+**Benefit:** Test maintenance simplified — if a header value changes, only `FinaryConstants` needs update, not 4 test files. Fixture consistency verified automatically (constants extracted once, used everywhere).
+
+**Build verification:** All 240 tests passing, no regressions.
 
 ### TOTP 2FA Requirement (2026-03-12)
 Finary login requires TOTP 2-factor authentication. This is not optional—all user accounts have TOTP enabled.
@@ -226,6 +240,22 @@ The contract stubs matched Linus's implementation remarkably well. Interface sig
 - `SetupEmpty*` helpers per test class to initialize all categories as empty before overriding specific ones.
 - Currency format assertions check `Contains("€")` rather than exact format strings for maintainability.
 - Error isolation: verify one category failure doesn't prevent others from writing.
+
+### Test Constants Alignment (2026-03-17)
+
+**Context:** Team extracted hardcoded strings into `FinaryConstants.cs` (nested classes `ApiPaths`, `Headers`, `Defaults`). Updated test project to use shared constants so tests stay in sync with production code.
+
+**Files Updated (4):**
+- `Auth/ClerkAuthClientTests.cs` — 5× `"https://clerk.finary.com"` → `ClerkBaseUrl`
+- `Auth/TokenRefreshServiceTests.cs` — 4× `"https://clerk.finary.com"` → `ClerkBaseUrl`
+- `Infrastructure/FinaryDelegatingHandlerTests.cs` — 5× `"https://api.finary.com"` → `ApiBaseUrl`
+- `Api/FinaryApiClientTests.cs` — `ApiBaseUrl`, `AppOrigin`, `ApiPaths.CurrentUserPath`, `ApiPaths.UsersOrganizationsPath`, `Headers.*` constants for setup headers
+
+**Key Decision:** Assertions verifying specific header values and API responses were left hardcoded (not replaced with constants) to preserve independent verification — if a constant changes accidentally, the assertion catches it.
+
+**Note:** Linus renamed the nested class from `Api` to `ApiPaths` to avoid collision with the `FinaryExport.Api` namespace when using `using static FinaryExport.FinaryConstants;`.
+
+**Result:** 240/240 tests passing, 0 warnings, clean build.
 
 ## Cross-Agent Updates
 

@@ -346,6 +346,35 @@ All MCP tools are pure wrappers around `IFinaryApiClient`. They make no direct H
 
 ---
 
+### 2026-03-18T08:22:00Z: Constants Extraction — ApiPaths Naming
+
+**Author:** Linus (Backend)  
+**Date:** 2026-03-18  
+**Scope:** FinaryConstants / naming conventions
+
+## Context
+
+Extracted 11 magic strings, header patterns, and default values from across FinaryExport.Core and FinaryExport into centralized `FinaryConstants` nested classes.
+
+## Decision
+
+Renamed the initial `Api` nested class to `ApiPaths` to avoid namespace collision with `FinaryExport.Api`. The C# compiler resolves `Api.X` to the namespace rather than the `using static`-imported nested class, causing CS0234 errors in any file that imports or resides in `FinaryExport.Api`.
+
+## Impact
+
+- All references use `ApiPaths.HttpClientName`, `ApiPaths.UsersOrganizationsPath`, `ApiPaths.CurrentUserPath`
+- `Headers` and `Defaults` nested classes had no conflicts and kept their original names
+- Future nested classes in `FinaryConstants` should avoid names that match existing namespace segments (e.g., `Api`, `Models`, `Infrastructure`)
+- `SetFinaryHeaders` helper extracted in `FinaryDelegatingHandler` to DRY up header-setting between `SendAsync` and `CloneRequest`
+- All default parameter values (`"all"`, `"gross"`, `200`) across the interface chain now reference `Defaults.*` constants
+
+## Build Verification
+
+- Build: clean (0 errors, 0 warnings)
+- Tests: 240/240 passing
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus

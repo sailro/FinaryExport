@@ -9,6 +9,23 @@ Scribe maintains squad state: agent histories, decisions registry, session logs.
 
 ## Sessions Logged
 
+### 2026-03-18T08:22:00Z — Constants Extraction & Test Updates
+
+**Agents:** Linus (Backend), Basher (Tester)
+
+Linus extracted 11 constants into FinaryConstants nested classes (ApiPaths, Headers, Defaults), refactored SetFinaryHeaders helper in FinaryDelegatingHandler, and updated 12 consuming files. Basher updated 4 test files to use shared constants. Build clean, 240/240 tests pass.
+
+**Key events:**
+1. Created FinaryConstants.cs with 3 nested classes
+2. Resolved namespace collision: renamed Api → ApiPaths
+3. Refactored SetFinaryHeaders to eliminate duplication
+4. Updated consuming files (12 total: handler, clients, API partials, MCP tools)
+5. Updated test fixtures (4 files) to use constants
+6. Merged decision: linus-constants-extraction.md → decisions.md
+7. Wrote orchestration logs, session log, and this scribe update
+
+**Final state:** Constants centralized. All tests passing. Team infrastructure consolidated.
+
 ### 2026-03-12 — Full Development Session (Retroactive)
 
 **Scope:** Entire development lifecycle from API analysis to working multi-profile export.

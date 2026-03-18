@@ -18,9 +18,26 @@
 - **Testing:** 240 tests (xUnit), 13 test files. Covers auth, API, export, infrastructure, formatters. 100% pass rate. No trimming enabled (PublishTrimmed=false due to reflection dependencies).
 - **Publish:** win-x64 self-contained single-file executable (~90 MB). README has build/publish/run instructions.
 
-**Last Updated:** 2026-03-17 pagination fix & audit. Build: 0 warnings, 0 errors. All decisions filed in `.squad/decisions/decisions.md`.
+**Last Updated:** 2026-03-18 constants extraction. Build: 0 warnings, 0 errors. All decisions filed in `.squad/decisions/decisions.md`.
 
 ## Team Activity
+
+### 2026-03-18: Constants Extraction & Test Updates
+
+**Orchestration log filed:** `.squad/orchestration-log/2026-03-18T08-22-linus.md`
+
+Extracted 11 hardcoded constants from across the codebase into `FinaryConstants` nested static classes (`ApiPaths`, `Headers`, `Defaults`). Originally planned to name the API paths class `Api`, but it conflicted with the `FinaryExport.Api` namespace — renamed to `ApiPaths` to avoid `CS0234` resolution errors in files importing `using FinaryExport.Api;` or residing in that namespace.
+
+**Constants extracted:**
+- `ApiPaths.HttpClientName`, `UsersOrganizationsPath`, `CurrentUserPath` — used in ServiceCollectionExtensions, FinaryApiClient
+- `Headers.ApiVersionHeader/Value`, `ClientIdHeader/Value` — used in FinaryDelegatingHandler
+- `Defaults.DefaultPeriod`, `DefaultValueType`, `DefaultTransactionPageSize` — used across IFinaryApiClient, all FinaryApiClient partials, UnifiedFinaryApiClient, AutoInitFinaryApiClient, MCP tools
+
+**Refactored FinaryDelegatingHandler:** Extracted `SetFinaryHeaders(HttpRequestMessage, string)` private static helper. `SendAsync` and `CloneRequest` both call it — eliminated 12 lines of duplicated header-setting code.
+
+**Files updated:** 12 files across Core, Mcp, and Tests. Build: 0 errors, 0 warnings. Tests: 240/240 passing.
+
+**Parallel work:** Basher updated 4 test files to use shared constants in fixture setup (assertions left hardcoded for independent validation).
 
 ### 2026-03-17: Pagination Investigation Session
 
@@ -29,6 +46,19 @@ Collaborated with Livingston (Protocol Analyst) and Saul (MCP Specialist) on com
 **Orchestration logs filed:** `.squad/orchestration-log/2026-03-17T1900-linus.md`
 
 ## Learnings
+
+### Constants Extraction & Header Helper Refactor (2026-03-18)
+
+Extracted 11 hardcoded constants from across the codebase into `FinaryConstants` nested static classes (`ApiPaths`, `Headers`, `Defaults`). Originally planned to name the API paths class `Api`, but it conflicted with the `FinaryExport.Api` namespace — renamed to `ApiPaths` to avoid `CS0234` resolution errors in files importing `using FinaryExport.Api;` or residing in that namespace.
+
+**Constants extracted:**
+- `ApiPaths.HttpClientName`, `UsersOrganizationsPath`, `CurrentUserPath` — used in ServiceCollectionExtensions, FinaryApiClient
+- `Headers.ApiVersionHeader/Value`, `ClientIdHeader/Value` — used in FinaryDelegatingHandler
+- `Defaults.DefaultPeriod`, `DefaultValueType`, `DefaultTransactionPageSize` — used across IFinaryApiClient, all FinaryApiClient partials, UnifiedFinaryApiClient, AutoInitFinaryApiClient, MCP tools
+
+**Refactored FinaryDelegatingHandler:** Extracted `SetFinaryHeaders(HttpRequestMessage, string)` private static helper. `SendAsync` and `CloneRequest` both call it — eliminated 12 lines of duplicated header-setting code.
+
+**Files updated:** 12 files across Core, Mcp, and Tests. Build: 0 errors, 0 warnings. Tests: 240/240 passing.
 
 ### Asset List Pagination Correction (2026-03-18)
 
@@ -524,3 +554,26 @@ return await GetPaginatedListAsync<AssetListEntry>($"{BasePath}/asset_list?perio
 **Key learning:** Finary's `limit` parameter doesn't paginate — it just caps results. Their actual pagination uses `page` + `per_page`. The `GetPaginatedListAsync` helper already knew this pattern from transactions; I just wasn't using it for asset_list.
 
 **Build:** ✅ Clean (0 warnings, 0 errors).
+
+### Constants Audit (2026-03-18)
+
+Audited all hardcoded strings across `src/FinaryExport.Core/` (37 .cs files) for extraction into `FinaryConstants.cs`. Current constants: `ImpersonationProfile`, `ApiBaseUrl`, `AppOrigin`, `ClerkBaseUrl`.
+
+**Top extraction candidates (repeated or semantically meaningful):**
+- `"Finary"` — HTTP client name, used in both registration and resolution (2 sites).
+- `"/users/me/organizations"` — API route, used in 2 methods.
+- `"x-client-api-version"` / `"2"` — custom header, duplicated in SendAsync + CloneRequest.
+- `"x-finary-client-id"` / `"webapp"` — custom header, duplicated in SendAsync + CloneRequest.
+- `"new_format=true"` — query param baked into 4 API URLs.
+- `"all"` — default period value, appears in 12 method signatures across interface + implementations.
+- `"gross"` — default valueType, appears in 3 method signatures.
+- `pageSize = 200` — default transaction page size, appears in 3 method signatures.
+- `".finaryexport"` / `"session.dat"` — session store path components.
+
+**Clerk-specific strings (single-use but domain-meaningful):**
+- `/v1/client/sign_ins`, `/v1/client/sign_ins/{id}/attempt_second_factor`, `/v1/client/sessions/{id}/tokens` — Clerk endpoint path templates.
+- `"needs_second_factor"`, `"totp"` — Clerk protocol values.
+
+**Correctly skipped:** JSON property names, standard HTTP headers, form field names, model property names, enum display/URL mappings, error messages, log messages, local consts already extracted.
+
+**Key insight:** `FinaryDelegatingHandler.CloneRequest` duplicates all 5 header assignments from `SendAsync`. Extracting header names/values to constants reduces duplication surface and makes the protocol contract explicit.
