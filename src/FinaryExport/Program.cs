@@ -226,6 +226,7 @@ static void ConfigureHost(HostApplicationBuilder builder, string? output, bool c
 	builder.Services.AddSingleton<ISheetWriter, TransactionsSheet>();
 	builder.Services.AddSingleton<ISheetWriter, DividendsSheet>();
 	builder.Services.AddSingleton<ISheetWriter, HoldingsSheet>();
+	builder.Services.AddSingleton<ISheetWriter, CryptoHoldingsSheet>();
 }
 
 // Builds a per-profile output path from the user's --output option and the profile name.

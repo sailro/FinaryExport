@@ -35,10 +35,10 @@ public sealed record Account
 	public AccountBankAccountType? BankAccountType { get; init; }
 	public List<OwnershipEntry>? OwnershipRepartition { get; init; }
 
-	// Nested position arrays returned by /portfolio/investments/accounts
+	// Nested position arrays returned by category account endpoints
 	public List<SecurityPosition>? Securities { get; init; }
-	public JsonElement? Fiats { get; init; }
-	public JsonElement? Cryptos { get; init; }
+	public List<CurrencyPosition>? Fiats { get; init; }
+	public List<CurrencyPosition>? Cryptos { get; init; }
 	public JsonElement? FondsEuro { get; init; }
 	public JsonElement? Scpis { get; init; }
 	public JsonElement? GenericAssets { get; init; }
