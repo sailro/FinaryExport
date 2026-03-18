@@ -39,6 +39,26 @@ Extracted 11 hardcoded constants from across the codebase into `FinaryConstants`
 
 **Parallel work:** Basher updated 4 test files to use shared constants in fixture setup (assertions left hardcoded for independent validation).
 
+### 2026-03-18: Crypto Holdings Export — Complete Implementation
+
+Implemented full typed support for cryptocurrency and fiat position export (alongside Basher's tests).
+
+**Models created:** `CryptoPosition`, `CryptoInfo`, `FiatPosition`, `FiatInfo` in `Models/Accounts/`. Follow `SecurityPosition`/`SecurityInfo` pattern — record types with nullable decimal properties for raw + display values.
+
+**Sheet implementation:** `CryptoHoldingsSheet` — fetches `AssetCategory.Cryptos` accounts, flattens nested `account.Cryptos` into rows with columns: Account, Name, Code, Quantity, Buy Price, Current Price, Value, Buy Value, +/- Value, +/- %. 8 decimal precision for crypto quantities. Registered in `Program.cs` alongside other `ISheetWriter` implementations.
+
+**Model changes:** `Account.Cryptos` changed from `JsonElement?` to `List<CryptoPosition>?`; `Account.Fiats` from `JsonElement?` to `List<FiatPosition>?`.
+
+**Multi-profile:** Transparent via existing `UnifiedFinaryApiClient` deduplication — crypto positions nested in accounts already deduplicated.
+
+**Tests:** Basher wrote 23 comprehensive tests (deserialization, edge cases, sheet export). All 263 tests passing, build clean.
+
+**Orchestration logs:** `.squad/orchestration-log/2026-03-18T08-51-linus.md` and `basher.md`
+
+**Session log:** `.squad/log/2026-03-18T08-51-crypto-holdings.md`
+
+**Decision filed:** `.squad/decisions.md` (D-crypto)
+
 ### 2026-03-17: Pagination Investigation Session
 
 Collaborated with Livingston (Protocol Analyst) and Saul (MCP Specialist) on comprehensive pagination audit. Discovered the root cause of `asset_list` endpoint failures: the endpoint has a fundamental hard cap (~27 items) and doesn't support true pagination parameters. Saul made the decision to remove the unreliable `get_asset_list` tool entirely and replace it with `get_account_positions` using the reliable `/portfolio/{category}/accounts` endpoint.
@@ -46,6 +66,18 @@ Collaborated with Livingston (Protocol Analyst) and Saul (MCP Specialist) on com
 **Orchestration logs filed:** `.squad/orchestration-log/2026-03-17T1900-linus.md`
 
 ## Learnings
+
+### Crypto Holdings Export (2026-03-19)
+
+Added typed deserialization for crypto (and fiat) positions nested inside Account responses. Previously `Account.Cryptos` and `Account.Fiats` were `JsonElement?` — never deserialized. Changed them to `List<CryptoPosition>?` and `List<FiatPosition>?` respectively.
+
+**New models:** `CryptoPosition`, `CryptoInfo`, `FiatPosition`, `FiatInfo` in `Models/Accounts/`. Follow the same pattern as `SecurityPosition`/`SecurityInfo` — flat record types with nullable decimal properties for raw + display values.
+
+**CryptoHoldingsSheet:** Follows `HoldingsSheet` pattern exactly — fetches `AssetCategory.Cryptos` accounts, flattens `account.Cryptos` into rows sorted by account name then crypto name. Columns: Account, Name, Code, Quantity, Buy Price, Current Price, Value, Buy Value, +/- Value, +/- %. Quantity uses 8 decimal places (crypto precision). Registered in `Program.cs` DI alongside other `ISheetWriter` implementations.
+
+**Multi-profile:** No special handling needed — crypto positions are nested in the Account response from `GetCategoryAccountsAsync`. The `UnifiedFinaryApiClient` already deduplicates accounts by ID across memberships, so crypto positions come through transparently.
+
+**Key insight:** The Finary API nests position arrays (`cryptos`, `fiats`, `securities`, `fonds_euro`, `scpis`, `generic_assets`) inside each account object returned by `/portfolio/{category}/accounts`. STJ with `SnakeCaseLower` policy handles the mapping automatically — no custom converters needed.
 
 ### Constants Extraction & Header Helper Refactor (2026-03-18)
 

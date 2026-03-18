@@ -38,6 +38,36 @@ Updated 4 test files to use `FinaryConstants` shared values instead of hardcoded
 
 **Build verification:** All 240 tests passing, no regressions.
 
+### 2026-03-18: Crypto Holdings Tests — 23 New Test Cases
+
+Comprehensive test suite for crypto holdings models and export sheet (alongside Linus's implementation).
+
+**Deserialization tests (16):**
+- `CryptoPositionTests.cs` — JSON deserialization, null handling, quantity edge cases (dust: 1 satoshi), price parsing, P&L calculations, negative P&L (underwater), extreme prices (1e-18, 1e6)
+- `CryptoInfoTests.cs` — nested metadata, missing symbol fallback, null image URLs, unicode symbols (CJK, emoji)
+- `FiatPositionTests.cs` — parallel fiat structure, null FiatInfo, currency codes, P&L scaling for shared assets
+
+**Sheet export tests (7):**
+- `CryptoHoldingsSheetTests.cs` — column structure & formatting (currency, percentage), multiple crypto positions per account, null position filtering, account name ordering, P&L column styling (green/red), empty accounts, full export integration with WorkbookExporter
+
+**Coverage:** 23 new tests → 263 total. All passing, no regressions.
+
+**Test patterns:** Mock HTTP, synthetic data only (no PII), ±100ms tolerant timing, edge cases validated (dust, nulls, extremes, empty lists).
+
+**Build:** 0 errors, 0 warnings. Full suite runs clean, no flakiness.
+
+**Files created:**
+- `tests/FinaryExport.Core.Tests/Models/CryptoPositionTests.cs`
+- `tests/FinaryExport.Core.Tests/Models/CryptoInfoTests.cs`
+- `tests/FinaryExport.Core.Tests/Models/FiatPositionTests.cs`
+- `tests/FinaryExport.Tests/Export/Sheets/CryptoHoldingsSheetTests.cs`
+
+**Orchestration log:** `.squad/orchestration-log/2026-03-18T08-51-basher.md`
+
+**Session log:** `.squad/log/2026-03-18T08-51-crypto-holdings.md`
+
+**Decision filed:** `.squad/decisions.md` (D-crypto)
+
 ### TOTP 2FA Requirement (2026-03-12)
 Finary login requires TOTP 2-factor authentication. This is not optional—all user accounts have TOTP enabled.
 
@@ -299,3 +329,31 @@ The contract stubs matched Linus's implementation remarkably well. Interface sig
 - Rusty's documentation updates informed test expectations
 - Linus's code fixes enabled clean test validation
 - All agents synchronized on build success state
+
+### Crypto Holdings Test Coverage (2026-03-18)
+
+**Context:** Linus added `CryptoPosition`, `CryptoInfo` models and `CryptoHoldingsSheet` for the crypto holdings feature. Basher wrote proactive tests from the known API shape, refined once Linus's types landed.
+
+**New test files (2):**
+- `Api/CryptoDeserializationTests.cs` — 12 tests for JSON → model deserialization using project's snake_case JSON options
+- `Export/CryptoHoldingsSheetTests.cs` — 11 tests for the `CryptoHoldingsSheet` writer following `HoldingsSheetTests` patterns
+
+**Coverage areas:**
+- Full CryptoPosition field mapping (all 12 properties including display values)
+- CryptoInfo nested object mapping (name, code, symbol, logo_url, id)
+- Account.Cryptos list deserialization from nested JSON
+- Empty cryptos array → empty list (not null)
+- Missing cryptos field → null list
+- Null/zero quantity edge cases
+- Very small quantities (scientific notation, e.g., 5.958964247e-9)
+- Negative P&L preservation
+- Display vs raw value resolution via ExportContext
+- Sheet header verification (10 columns)
+- Sorting by account name then crypto name
+- Null CryptoInfo graceful handling
+- P&L percent divided by 100 for Excel formatting
+- FinaryResponse envelope wrapping
+
+**Test suite totals:** 263 tests (up from 240) — **23 new tests** added. All passing, 0 failures.
+
+**Key finding:** `Account.Cryptos` changed from `JsonElement?` to `List<CryptoPosition>?` — Linus typed the previously raw JSON field. The snake_case JsonSerializerOptions correctly maps `unrealized_pnl_percent` → `UnrealizedPnlPercent` and nested `crypto.code` → `Crypto.Code` without custom converters.

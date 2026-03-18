@@ -375,6 +375,61 @@ Renamed the initial `Api` nested class to `ApiPaths` to avoid namespace collisio
 
 ---
 
+### 2026-03-18T08:51:00Z: Crypto Holdings Export Implementation (D-crypto)
+
+**Authors:** Linus (Backend), Basher (Tester)  
+**Scope:** Models / Export  
+**Status:** ✅ COMPLETE — Build 0 errors/warnings, 263 tests passing
+
+## Context
+
+The Finary API returns crypto position data nested inside each account from `GetCategoryAccountsAsync("cryptos")`. The `Account.Cryptos` field was typed as `JsonElement?` and never deserialized, meaning crypto holdings were silently ignored in exports.
+
+## Decision
+
+1. Created typed models `CryptoPosition` and `CryptoInfo` (plus `FiatPosition`/`FiatInfo` for fiat data) following the `SecurityPosition`/`SecurityInfo` pattern.
+2. Changed `Account.Cryptos` from `JsonElement?` to `List<CryptoPosition>?` and `Account.Fiats` from `JsonElement?` to `List<FiatPosition>?`.
+3. Created `CryptoHoldingsSheet` following the `HoldingsSheet` pattern — flattens crypto positions into spreadsheet rows.
+4. Registered `CryptoHoldingsSheet` in `Program.cs` DI as an `ISheetWriter`.
+
+## Rationale
+
+- Existing `HoldingsSheet` only covers `AssetCategory.Investments` securities. Crypto is separate with different nested data shape.
+- Typed deserialization enables compile-time safety and LINQ queries vs manual `JsonElement` traversal.
+- `FiatPosition` typed simultaneously since data shape nearly identical and both were `JsonElement?`.
+
+## Impact
+
+- Exports now include "Crypto Holdings" sheet: Account, Name, Code, Quantity, Buy Price, Current Price, Value, Buy Value, +/- Value, +/- %.
+- Multi-profile works transparently — positions nested in accounts, already deduplicated by `UnifiedFinaryApiClient`.
+- No API changes needed — data was already being fetched, just not deserialized.
+
+## Files Changed
+
+**Created:**
+- `src/FinaryExport.Core/Models/Accounts/CryptoPosition.cs`
+- `src/FinaryExport.Core/Models/Accounts/CryptoInfo.cs`
+- `src/FinaryExport.Core/Models/Accounts/FiatPosition.cs`
+- `src/FinaryExport/Export/Sheets/CryptoHoldingsSheet.cs`
+- `tests/FinaryExport.Core.Tests/Models/CryptoPositionTests.cs`
+- `tests/FinaryExport.Core.Tests/Models/CryptoInfoTests.cs`
+- `tests/FinaryExport.Core.Tests/Models/FiatPositionTests.cs`
+- `tests/FinaryExport.Tests/Export/Sheets/CryptoHoldingsSheetTests.cs`
+
+**Modified:**
+- `src/FinaryExport.Core/Models/Accounts/Account.cs`
+- `src/FinaryExport/Program.cs`
+
+## Test Coverage
+
+23 new tests (263 total):
+- CryptoPosition deserialization: null handling, dust amounts (1 satoshi), zero quantity, negative P&L, extreme prices
+- CryptoInfo nested metadata: missing symbol fallback, null image URL, unicode symbols
+- FiatPosition: null FiatInfo, currency codes, P&L scaling for shared assets
+- CryptoHoldingsSheet: column structure, multiple positions per account, null filtering, account ordering, P&L styling, empty accounts, full export integration
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus
