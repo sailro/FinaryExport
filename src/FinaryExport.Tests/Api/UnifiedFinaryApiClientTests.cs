@@ -385,6 +385,35 @@ public sealed class UnifiedFinaryApiClientTests
 	}
 
 	[Fact]
+	public async Task GetPortfolio_SameAccountAcrossCategories_SumsDistinctCategoryComponents()
+	{
+		var (mock, client) = CreateContextTrackingClient(_allProfiles, out var ctx);
+		SetupOwnerPortfolio(mock, 1250m, 1250m);
+
+		mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Checkings, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+			.Returns(() => ctx.CurrentMembershipId == "membership-owner"
+				? Task.FromResult(new List<Account> { new() { Id = "shared-account", Balance = 1000m } })
+				: Task.FromResult(new List<Account>()));
+		mock.Setup(x => x.GetCategoryAccountsAsync(AssetCategory.Savings, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+			.Returns(() => ctx.CurrentMembershipId == "membership-owner"
+				? Task.FromResult(new List<Account> { new() { Id = "shared-account", Balance = 250m } })
+				: Task.FromResult(new List<Account>()));
+
+		foreach (var category in Enum.GetValues<AssetCategory>())
+		{
+			if (category is AssetCategory.Checkings or AssetCategory.Savings) continue;
+			mock.Setup(x => x.GetCategoryAccountsAsync(category, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+				.ReturnsAsync([]);
+		}
+
+		var portfolio = await client.GetPortfolioAsync();
+
+		portfolio!.Gross!.Total!.Amount.Should().Be(1250m,
+			"the same account can expose different value components in different categories");
+		portfolio.Net!.Total!.Amount.Should().Be(1250m);
+	}
+
+	[Fact]
 	public async Task GetPortfolio_PreservesOwnerEvolution()
 	{
 		var (mock, client) = CreateContextTrackingClient(_allProfiles, out _);

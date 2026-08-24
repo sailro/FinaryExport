@@ -16,6 +16,7 @@ public static class FinaryConstants
 		public const string HttpClientName = "Finary";
 		public const string UsersOrganizationsPath = "/users/me/organizations";
 		public const string CurrentUserPath = "/users/me";
+		public const string SynchronizationsPath = "/users/me/synchronizations";
 	}
 
 	public static class Headers

@@ -1,7 +1,7 @@
 # FinaryExport — Architecture Document
 
 > **Author:** Rusty (Lead)
-> **Revised:** 2026-03-17 — updated for MCP server, Core extraction, elicitation auth
+> **Revised:** 2026-08-24 — full code/documentation audit, structured MCP responses, bounded data tools
 > **Status:** Living document tracking current implementation state
 
 ---
@@ -39,7 +39,7 @@ Key technical choices:
 - **DPAPI session persistence** — encrypted cookie/session cache for warm-start auth
 - **System.CommandLine** — structured CLI with `export`, `clear-session`, `version` commands
 - **ClosedXML** — Excel generation without COM interop
-- **ModelContextProtocol** — stdio-based MCP server with 15 read-only tools
+- **ModelContextProtocol** — stdio-based MCP server with 17 schema-backed tools
 
 ---
 
@@ -49,6 +49,7 @@ Key technical choices:
 FinaryExport.slnx
 ├── Directory.Build.props                  # Shared: net10.0, nullable, implicit usings
 ├── Directory.Packages.props               # Central Package Management (all NuGet versions)
+├── global.json                            # Selects Microsoft Testing Platform for dotnet test
 │
 ├── src/FinaryExport.Core/                 # Shared class library (RootNamespace=FinaryExport)
 │   ├── FinaryExport.Core.csproj
@@ -57,9 +58,11 @@ FinaryExport.slnx
 │   │   ├── IFinaryApiClient.cs            # API contract
 │   │   ├── FinaryApiClient.cs             # Partial class: core setup, org context, pagination
 │   │   ├── FinaryApiClient.Categories.cs  # Category-generic endpoints
-│   │   ├── FinaryApiClient.Portfolio.cs   # Portfolio, timeseries, dividends, allocations, fees, asset list
-│   │   ├── FinaryApiClient.Reference.cs   # Holdings accounts
+│   │   ├── FinaryApiClient.Portfolio.cs   # Portfolio, timeseries, dividends, allocations, fees
+│   │   ├── FinaryApiClient.Reference.cs   # Holdings accounts and synchronization metadata
 │   │   ├── FinaryApiClient.Transactions.cs # Transaction endpoints (paginated)
+│   │   ├── FinaryPeriod.cs                # Shared period validation and trailing date ranges
+│   │   ├── FinaryValueType.cs             # Shared gross/net validation
 │   │   ├── UnifiedFinaryApiClient.cs      # Decorator: merges data across all profiles
 │   │   └── RateLimiter.cs                 # Token-bucket, ~5 req/s
 │   ├── Auth/
@@ -80,7 +83,7 @@ FinaryExport.slnx
 │   └── Models/
 │       ├── ApiEnvelope.cs                 # FinaryResponse<T> + FinaryError
 │       ├── AssetCategory.cs               # Enum + extension methods (ToUrlSegment, ToDisplayName, HasTransactions)
-│       ├── Accounts/                      # Account, HoldingsAccount, OwnershipEntry, SecurityInfo, SecurityPosition
+│       ├── Accounts/                      # Account, positions, ownership, and synchronization metadata
 │       ├── Portfolio/                     # PortfolioSummary, TimeseriesData, DividendSummary (incl. DividendAssetInfo), AllocationData, FeeSummary
 │       ├── Transactions/                  # Transaction, TransactionCategory
 │       └── User/                          # FinaryProfile, Membership, Organization, UserProfile, UiConfiguration, DisplayCurrencyInfo
@@ -102,25 +105,29 @@ FinaryExport.slnx
 │           ├── AccountsSheet.cs           # Accounts across all asset categories
 │           ├── TransactionsSheet.cs       # Buy/sell/income/expense records
 │           ├── DividendsSheet.cs          # Dividend income
-│           └── HoldingsSheet.cs           # Individual security positions
+│           ├── HoldingsSheet.cs           # Individual security positions
+│           └── CryptoHoldingsSheet.cs     # Crypto and fiat positions
 │
 ├── src/FinaryExport.Mcp/                  # MCP server
 │   ├── FinaryExport.Mcp.csproj            # References FinaryExport.Core
 │   ├── Program.cs                         # MCP host entry point (stdio transport)
 │   ├── McpCredentialPrompt.cs             # MCP Elicitation-based credential prompts
-│   ├── AutoInitFinaryApiClient.cs         # Decorator: auto-resolves org context on first call
+│   ├── McpFinaryApiClientFactory.cs       # Session profile selection + isolated per-call clients
+│   ├── McpErrors.cs                       # Actionable protocol-safe tool errors
+│   ├── Contracts/McpResponses.cs          # MCP-only response DTOs and mappings
 │   ├── appsettings.json
 │   └── Tools/
+│       ├── ToolInputs.cs                  # MCP-only input/page limits
 │       ├── UserTools.cs                   # get_user_profile, get_profiles, set_active_profile
 │       ├── PortfolioTools.cs              # get_portfolio_summary, get_portfolio_timeseries, get_portfolio_fees
 │       ├── AccountTools.cs                # get_accounts, get_all_accounts, get_category_timeseries
 │       ├── TransactionTools.cs            # get_transactions, get_all_transactions
 │       ├── DividendTools.cs               # get_dividends
-│       ├── HoldingsTools.cs               # get_holdings, get_account_positions
+│       ├── HoldingsTools.cs               # get_holdings, get_account_positions, get_crypto_holdings
 │       └── AllocationTools.cs             # get_geographical_allocation, get_sector_allocation
 │
 └── src/FinaryExport.Tests/                # Test project
-    ├── FinaryExport.Tests.csproj          # References FinaryExport.Core + FinaryExport
+    ├── FinaryExport.Tests.csproj          # References Core + CLI + MCP
     ├── Api/                               # API client tests
     ├── Auth/                              # Auth tests
     ├── Export/                            # Sheet writer tests
@@ -135,19 +142,19 @@ FinaryExport.slnx
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| ClosedXML | 0.105.0 | Excel workbook generation |
-| Loxifi.CurlImpersonate | 1.1.0 | Chrome 136 TLS fingerprint (Cloudflare bypass) |
-| Microsoft.Extensions.Hosting | 10.0.5 | Generic host, DI, logging, hosted services |
-| Microsoft.Extensions.Http | 10.0.5 | HttpClientFactory for Finary API |
-| ModelContextProtocol | 1.1.0 | MCP server SDK (stdio transport, tool discovery) |
-| System.CommandLine | 2.0.5 | CLI argument parsing (SetAction API) |
-| System.Security.Cryptography.ProtectedData | 10.0.5 | DPAPI encryption for session store |
+| ClosedXML | 0.105.1 | Excel workbook generation |
+| Loxifi.CurlImpersonate | 1.3.1 | Chrome 136 TLS fingerprint (Cloudflare bypass) |
+| Microsoft.Extensions.Hosting | 10.0.11 | Generic host, DI, logging, hosted services |
+| Microsoft.Extensions.Http | 10.0.11 | HttpClientFactory for Finary API |
+| ModelContextProtocol | 2.2.0 | MCP server SDK (stdio transport, structured output schemas) |
+| System.CommandLine | 2.0.11 | CLI argument parsing (SetAction API) |
+| System.Security.Cryptography.ProtectedData | 10.0.11 | DPAPI encryption for session store |
 
 **Target framework:** `net10.0`
 
 **Build tooling:** `Directory.Build.props` sets shared properties (target framework, nullable, implicit usings). `Directory.Packages.props` centralizes all NuGet package versions via Central Package Management.
 
-**Test framework:** xUnit v3 (3.2.2) with FluentAssertions 8.8.0 and Moq 4.20.72.
+**Test framework:** xUnit v4 (4.0.0) with FluentAssertions 8.10.0, Moq 4.20.72, and coverlet.collector 10.0.1. `global.json` selects Microsoft Testing Platform v2 so `dotnet test` uses xUnit v4's supported runner on .NET SDK 10 and later.
 
 ---
 
@@ -277,11 +284,11 @@ Token-bucket pattern using `SemaphoreSlim`. Enforces ~5 req/s (200ms minimum int
 ### FinaryApiClient
 
 Partial class split across 5 files:
-- **Core** (`FinaryApiClient.cs`): Constructor, org context management, generic `GetAsync<T>` with pagination, `GetCurrentUser`, `GetAllProfiles`
+- **Core** (`FinaryApiClient.cs`): Constructor, atomic org/membership context, safe response-envelope handling, full and sliced pagination, `GetCurrentUser`, `GetAllProfiles`
 - **Categories** (`FinaryApiClient.Categories.cs`): `GetCategoryAccountsAsync`, `GetCategoryTimeseriesAsync` — generic over `AssetCategory` enum
-- **Portfolio** (`FinaryApiClient.Portfolio.cs`): Portfolio summary, timeseries, dividends, geographical/sector allocation, fees, asset list
+- **Portfolio** (`FinaryApiClient.Portfolio.cs`): Portfolio summary, timeseries, dividends, geographical/sector allocation, fees
 - **Reference** (`FinaryApiClient.Reference.cs`): Holdings accounts
-- **Transactions** (`FinaryApiClient.Transactions.cs`): Paginated transaction retrieval by category
+- **Transactions** (`FinaryApiClient.Transactions.cs`): Full-history category pagination plus bounded organization-level queries with explicit trailing date ranges
 
 All methods use organization-scoped URLs: `/organizations/{orgId}/memberships/{membershipId}/...`
 
@@ -310,10 +317,11 @@ Per-profile exports use `ExportContext { UseDisplayValues = true }` — values a
 1. Iterates all profiles
 2. For each profile, calls the underlying API client with that profile's org context
 3. Merges results across profiles (accounts, transactions, dividends, holdings)
-4. Applies **ownership scaling** — multiplies raw values by the user's ownership share from `OwnershipRepartition`
-5. Caches account data to avoid redundant API calls across sheet writers
+4. Applies **ownership scaling** — converts an ownership-adjusted display value to the full value by dividing by the membership share
+5. Deduplicates account IDs both across memberships and across category appearances when computing unified totals
+6. Caches account data to avoid redundant API calls across sheet writers
 
-The unified export uses `ExportContext { UseDisplayValues = false }` — raw values are used since the unified client handles ownership scaling itself.
+The unified export uses `ExportContext { UseDisplayValues = false }`. The decorator normalizes account `Balance` fields to full ownership values before sheet writers resolve them.
 
 ### ExportContext
 
@@ -344,11 +352,11 @@ Iterates all registered `ISheetWriter` implementations, calls `WriteAsync` on ea
 
 | Sheet | Class | Data Source |
 |-------|-------|-------------|
-| Portfolio Summary | `PortfolioSummarySheet` | `GetPortfolioAsync`, `GetPortfolioTimeseriesAsync` |
+| Portfolio Summary | `PortfolioSummarySheet` | `GetPortfolioAsync` plus category account detail |
 | Accounts | `AccountsSheet` | `GetCategoryAccountsAsync` (all categories) |
 | Transactions | `TransactionsSheet` | `GetCategoryTransactionsAsync` (filtered by `HasTransactions()`: checkings, savings, investments, credits). Columns include asset category and transaction category. |
 | Dividends | `DividendsSheet` | `GetPortfolioDividendsAsync` |
-| Holdings | `HoldingsSheet` | `GetHoldingsAccountsAsync` — individual securities from investment accounts |
+| Holdings | `HoldingsSheet` | `GetCategoryAccountsAsync(Investments)` — individual securities nested in investment accounts |
 | Crypto Holdings | `CryptoHoldingsSheet` | `GetCategoryAccountsAsync(Cryptos)` — individual crypto coins and fiat balances from crypto accounts |
 
 All writers implement `ISheetWriter`:
@@ -389,7 +397,7 @@ The detected symbol (e.g., `€`, `$`, `£`) is passed to `ExportContext.Display
 Program.cs (Host.CreateApplicationBuilder)
    |
    +-- AddFinaryCore()                    # Shared auth, API, HTTP pipeline from Core
-   +-- AutoInitFinaryApiClient            # Decorator: auto-resolves org context lazily
+   +-- McpFinaryApiClientFactory          # Isolated client/context snapshot per invocation
    +-- McpCredentialPrompt                # Elicitation-based credential collection
    +-- AddMcpServer().WithStdioServerTransport().WithToolsFromAssembly()
 ```
@@ -400,13 +408,13 @@ All console logging goes to stderr (stdout is reserved for MCP protocol). Consol
 
 The MCP server tries warm start first (reuses `~/.finaryexport/session.dat` from a previous CLI run). If no session exists, `McpCredentialPrompt` uses MCP Elicitation to prompt the user for email, password, and TOTP code through the MCP client. If the client doesn't support elicitation, it throws with a message suggesting a CLI run to create the session.
 
-### AutoInitFinaryApiClient
+### Profile and Client Isolation
 
-Decorator over `IFinaryApiClient` that lazily calls `GetOrganizationContextAsync()` on the first data request. This means MCP users don't need to manually call `get_profiles` + `set_active_profile` — the server auto-initializes with the owner's default profile. Thread-safe via `SemaphoreSlim` double-checked locking.
+`McpFinaryApiClientFactory` owns only the MCP session's selected profile. It lazily resolves the owner profile, then creates a fresh `FinaryApiClient` with a fixed organization/membership snapshot for every tool invocation. `set_active_profile` validates the requested pair before atomically changing the session selection. Concurrent calls therefore cannot change one another's in-flight profile context. The CLI exporter does not use this factory; it continues to use `UnifiedFinaryApiClient` and the shared Core API contract independently.
 
 ### Tool Catalog
 
-16 tools across 7 tool classes, all read-only:
+17 tools across 7 tool classes. Sixteen query Finary data without mutation; `set_active_profile` changes only the MCP session's selected profile:
 
 | Class | Tools | Description |
 |-------|-------|-------------|
@@ -418,7 +426,9 @@ Decorator over `IFinaryApiClient` that lazily calls `GetOrganizationContextAsync
 | `HoldingsTools` | `get_holdings`, `get_account_positions`, `get_crypto_holdings` | Security positions and crypto holdings |
 | `AllocationTools` | `get_geographical_allocation`, `get_sector_allocation` | Portfolio allocation breakdowns |
 
-Tools use `[McpServerToolType]` and `[McpServerTool]` attributes for discovery via `WithToolsFromAssembly()`. Multi-category tools (e.g., `get_all_accounts`) aggregate with per-category error isolation — one failing category doesn't block the others. `get_account_positions` is category-aware: returns securities for investment accounts, crypto/fiat positions for crypto accounts. `get_crypto_holdings` returns all crypto + fiat positions across all profiles with metadata.
+Tools use `[McpServerToolType]` and `[McpServerTool]` attributes for discovery via `WithToolsFromAssembly()`. Every tool publishes an output schema and returns structured content. MCP-only response contracts convert monetary values to invariant decimal strings, omit raw ownership/provider internals, preserve user-facing account fields such as IBAN, and add explicit scope (`active_profile` for portfolio data, with separate global scopes for identity and profile lists). Core retains the complete API models for the XLSX exporter.
+
+Multi-category tools aggregate with per-category error isolation and return a `warnings` array when a category fails. Account results are deduplicated by account ID, while repeated category appearances remain visible as distinct additive components under `category_values`. Account synchronization state is best-effort enriched from `/users/me/synchronizations`. Investment mappings include securities, fiat balances, and SCPI positions. Timeseries, accounts, holdings, dividends, and transactions use `offset`/`limit` output bounds (default 100, maximum 500). Invalid inputs and missing accounts are returned as actionable MCP errors. Transaction tools default to a trailing one-month window and use explicit API dates; complete history requires `period: "all"`.
 
 ### DI Registration (MCP)
 
@@ -426,9 +436,7 @@ Tools use `[McpServerToolType]` and `[McpServerTool]` attributes for discovery v
 AddFinaryCore()                           # Shared: CurlClient, ClerkAuthClient, ITokenProvider,
                                           #   TokenRefreshService, RateLimiter, HttpClient "Finary",
                                           #   IFinaryApiClient → FinaryApiClient
-Remove IFinaryApiClient registration      # Replace with decorator
-AddSingleton<FinaryApiClient>             # Keep raw client accessible
-AddSingleton<IFinaryApiClient, AutoInitFinaryApiClient>  # Auto-init decorator
+AddSingleton<IMcpFinaryApiClientFactory, McpFinaryApiClientFactory>
 AddSingleton<ICredentialPrompt, McpCredentialPrompt>     # Elicitation auth
 AddMcpServer().WithStdioServerTransport().WithToolsFromAssembly()
 ```
@@ -475,7 +483,7 @@ CLI option `--output` overrides the `appsettings.json` value.
 
 Centralized constants file with nested static classes:
 
-- **`FinaryConstants.ApiPaths`** — API endpoint paths: `HttpClientName`, `UsersOrganizationsPath`, `CurrentUserPath`
+- **`FinaryConstants.ApiPaths`** — API endpoint paths: `HttpClientName`, `UsersOrganizationsPath`, `CurrentUserPath`, `SynchronizationsPath`
 - **`FinaryConstants.Headers`** — HTTP header names and values: `ApiVersionHeader`, `ApiVersionValue`, `ClientIdHeader`, `ClientIdValue`
 - **`FinaryConstants.Defaults`** — Export defaults: `DefaultPeriod`, `DefaultValueType`, `DefaultTransactionPageSize`
 
@@ -503,9 +511,9 @@ CurlClient (singleton, Chrome136)
 |   +-- IFinaryApiClient -> FinaryApiClient
 ```
 
-**CLI adds:** `ICredentialPrompt → ConsoleCredentialPrompt`, `IWorkbookExporter → WorkbookExporter`, `ISheetWriter → [PortfolioSummary, Accounts, Transactions, Dividends, Holdings]`
+**CLI adds:** `ICredentialPrompt → ConsoleCredentialPrompt`, `IWorkbookExporter → WorkbookExporter`, `ISheetWriter → [PortfolioSummary, Accounts, Transactions, Dividends, Holdings, CryptoHoldings]`
 
-**MCP adds:** `ICredentialPrompt → McpCredentialPrompt`, `IFinaryApiClient → AutoInitFinaryApiClient` (decorator), `AddMcpServer().WithStdioServerTransport().WithToolsFromAssembly()`
+**MCP adds:** `ICredentialPrompt → McpCredentialPrompt`, `IMcpFinaryApiClientFactory → McpFinaryApiClientFactory`, `AddMcpServer().WithStdioServerTransport().WithToolsFromAssembly()`
 
 Note: `ICredentialPrompt` is NOT registered by `AddFinaryCore()` — each host must provide its own implementation.
 
@@ -526,12 +534,11 @@ Custom `ConsoleFormatter` for single-line log output. Registered when configurin
 | Type | Namespace | Purpose |
 |------|-----------|---------|
 | `Account` | `Models.Accounts` | Bank/investment account with balances, ownership, nested positions |
+| `AccountSynchronization` | `Models.Accounts` | Connection state and last successful synchronization timestamps |
 | `OwnershipEntry` | `Models.Accounts` | Share percentage + membership for ownership scaling |
 | `SecurityPosition` | `Models.Accounts` | Individual security holding within an investment account |
-| `CryptoPosition` | `Models.Accounts` | Individual cryptocurrency coin position within a crypto account |
-| `FiatPosition` | `Models.Accounts` | Fiat balance (cash) held within a crypto account |
-| `CurrencyPosition` | `Models.Accounts` | Union type: `SecurityPosition \| CryptoPosition \| FiatPosition` for consolidated API responses |
-| `AssetInfo` | `Models.Accounts` | Consolidated metadata: `SecurityInfo \| CryptoInfo \| FiatInfo` |
+| `CurrencyPosition` | `Models.Accounts` | Crypto or fiat position with typed asset metadata |
+| `AssetInfo` | `Models.Accounts` | Crypto/fiat asset name, code, symbol, and logo metadata |
 | `HoldingsAccount` | `Models.Accounts` | Simplified account from holdings endpoint |
 | `PortfolioSummary` | `Models.Portfolio` | Overall portfolio value and allocation data |
 | `TimeseriesData` | `Models.Portfolio` | Historical value data points |
@@ -543,7 +550,7 @@ Custom `ConsoleFormatter` for single-line log output. Registered when configurin
 | `Transaction` | `Models.Transactions` | Buy/sell/income/expense record |
 | `TransactionCategory` | `Models.Transactions` | Category with subcategories, color, icon |
 | `FinaryProfile` | `Models.User` | OrgId + MembershipId + ProfileName |
-| `UserProfile` | `Models.User` | User identity, membership list, subscription, UI config |
+| `UserProfile` | `Models.User` | User identity, subscription, and UI config |
 | `UiConfiguration` | `Models.User` | Display preferences including display currency |
 | `DisplayCurrencyInfo` | `Models.User` | Currency code + symbol for display currency |
 | `FinaryResponse<T>` | `Models` | Generic `{ result: T, message, error }` response wrapper |

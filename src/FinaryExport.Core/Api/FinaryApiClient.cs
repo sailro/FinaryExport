@@ -18,22 +18,25 @@ public sealed partial class FinaryApiClient(IHttpClientFactory httpClientFactory
 		PropertyNameCaseInsensitive = true
 	};
 
-	private string? _orgId;
-	private string? _membershipId;
+	private OrganizationContext? _context;
 
 	private HttpClient CreateClient() => httpClientFactory.CreateClient(ApiPaths.HttpClientName);
 
-	private string BasePath => $"/organizations/{_orgId}/memberships/{_membershipId}";
+	private string BasePath
+	{
+		get
+		{
+			var context = Volatile.Read(ref _context)
+				?? throw new InvalidOperationException(
+					"Organization context has not been initialized. Resolve or set a profile first.");
+			return $"/organizations/{context.OrgId}/memberships/{context.MembershipId}";
+		}
+	}
 
 	public async Task<(string OrgId, string MembershipId)> GetOrganizationContextAsync(CancellationToken ct)
 	{
-		var client = CreateClient();
-		var response = await client.GetAsync(ApiPaths.UsersOrganizationsPath, ct);
-		response.EnsureSuccessStatusCode();
-
-		var body = await response.Content.ReadAsStringAsync(ct);
-		var result = JsonSerializer.Deserialize<FinaryResponse<List<Organization>>>(body, _jsonOptions);
-		var orgs = result?.Result ?? throw new InvalidOperationException("No organizations found");
+		var orgs = await GetAsync<List<Organization>>(ApiPaths.UsersOrganizationsPath, ct)
+			?? throw new InvalidOperationException("No organizations found");
 
 		// Find the org where user is owner
 		foreach (var org in orgs)
@@ -42,11 +45,12 @@ public sealed partial class FinaryApiClient(IHttpClientFactory httpClientFactory
 			if (ownerMember is null)
 				continue;
 
-			_orgId = org.Id ?? throw new InvalidOperationException("Organization has no ID");
-			_membershipId = ownerMember.Id ?? throw new InvalidOperationException("Membership has no ID");
+			var orgId = org.Id ?? throw new InvalidOperationException("Organization has no ID");
+			var membershipId = ownerMember.Id ?? throw new InvalidOperationException("Membership has no ID");
+			Volatile.Write(ref _context, new OrganizationContext(orgId, membershipId));
 
-			logger.LogInformation("Organization: {OrgName} (membership: {MembershipId})", org.Name, _membershipId);
-			return (_orgId, _membershipId);
+			logger.LogInformation("Organization context initialized");
+			return (orgId, membershipId);
 		}
 
 		throw new InvalidOperationException("No organization found where user is owner");
@@ -54,13 +58,8 @@ public sealed partial class FinaryApiClient(IHttpClientFactory httpClientFactory
 
 	public async Task<List<FinaryProfile>> GetAllProfilesAsync(CancellationToken ct)
 	{
-		var client = CreateClient();
-		var response = await client.GetAsync(ApiPaths.UsersOrganizationsPath, ct);
-		response.EnsureSuccessStatusCode();
-
-		var body = await response.Content.ReadAsStringAsync(ct);
-		var result = JsonSerializer.Deserialize<FinaryResponse<List<Organization>>>(body, _jsonOptions);
-		var orgs = result?.Result ?? throw new InvalidOperationException("No organizations found");
+		var orgs = await GetAsync<List<Organization>>(ApiPaths.UsersOrganizationsPath, ct)
+			?? throw new InvalidOperationException("No organizations found");
 
 		var profiles = new List<FinaryProfile>();
 
@@ -85,9 +84,10 @@ public sealed partial class FinaryApiClient(IHttpClientFactory httpClientFactory
 
 	public void SetOrganizationContext(string orgId, string membershipId)
 	{
-		_orgId = orgId;
-		_membershipId = membershipId;
-		logger.LogInformation("Switched to org {OrgId}, membership {MembershipId}", orgId, membershipId);
+		ArgumentException.ThrowIfNullOrWhiteSpace(orgId);
+		ArgumentException.ThrowIfNullOrWhiteSpace(membershipId);
+		Volatile.Write(ref _context, new OrganizationContext(orgId, membershipId));
+		logger.LogDebug("Organization context changed");
 	}
 
 	// Fetches and unwraps a FinaryResponse envelope.
@@ -95,9 +95,17 @@ public sealed partial class FinaryApiClient(IHttpClientFactory httpClientFactory
 	{
 		var client = CreateClient();
 		var response = await client.GetAsync(path, ct);
-		response.EnsureSuccessStatusCode();
-
 		var body = await response.Content.ReadAsStringAsync(ct);
+
+		if (!response.IsSuccessStatusCode)
+		{
+			var errorMessage = GetApiErrorMessage(body) ?? response.ReasonPhrase ?? "Request failed";
+			throw new HttpRequestException(
+				$"Finary API returned {(int)response.StatusCode} ({response.StatusCode}): {errorMessage}",
+				null,
+				response.StatusCode);
+		}
+
 		var envelope = JsonSerializer.Deserialize<FinaryResponse<T>>(body, _jsonOptions);
 
 		if (envelope?.Error is not null)
@@ -112,6 +120,7 @@ public sealed partial class FinaryApiClient(IHttpClientFactory httpClientFactory
 	// Fetches a list endpoint with auto-pagination.
 	private async Task<List<T>> GetPaginatedListAsync<T>(string basePath, int pageSize, CancellationToken ct)
 	{
+		if (pageSize <= 0) throw new ArgumentOutOfRangeException(nameof(pageSize));
 		var all = new List<T>();
 		var page = 1;
 
@@ -129,8 +138,59 @@ public sealed partial class FinaryApiClient(IHttpClientFactory httpClientFactory
 		return all;
 	}
 
+	// Fetches one logical slice from a page-based endpoint without reading earlier pages.
+	private async Task<List<T>> GetPaginatedListPageAsync<T>(
+		string basePath,
+		int pageSize,
+		int offset,
+		int limit,
+		CancellationToken ct)
+	{
+		if (offset < 0) throw new ArgumentOutOfRangeException(nameof(offset));
+		if (limit <= 0) throw new ArgumentOutOfRangeException(nameof(limit));
+
+		var page = (offset / pageSize) + 1;
+		var skip = offset % pageSize;
+		var result = new List<T>(limit);
+
+		while (result.Count < limit)
+		{
+			var separator = basePath.Contains('?') ? "&" : "?";
+			var path = $"{basePath}{separator}page={page}&per_page={pageSize}";
+			var batch = await GetAsync<List<T>>(path, ct) ?? [];
+			var isLastPage = batch.Count < pageSize;
+
+			if (skip > 0)
+			{
+				batch = [.. batch.Skip(skip)];
+				skip = 0;
+			}
+
+			result.AddRange(batch.Take(limit - result.Count));
+			if (isLastPage) break;
+			page++;
+		}
+
+		return result;
+	}
+
 	public async Task<UserProfile?> GetCurrentUserAsync(CancellationToken ct)
 	{
 		return await GetAsync<UserProfile>(ApiPaths.CurrentUserPath, ct);
 	}
+
+	private string? GetApiErrorMessage(string body)
+	{
+		try
+		{
+			var errorEnvelope = JsonSerializer.Deserialize<FinaryResponse<JsonElement>>(body, _jsonOptions);
+			return errorEnvelope?.Error?.Message ?? errorEnvelope?.Message;
+		}
+		catch (JsonException)
+		{
+			return null;
+		}
+	}
+
+	private sealed record OrganizationContext(string OrgId, string MembershipId);
 }

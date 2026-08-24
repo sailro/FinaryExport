@@ -206,7 +206,7 @@ No XML doc comments (`///`). Use regular comments (`//`) only, sparingly, for no
 **Authors:** Rusty (architecture), Livingston (API catalog), Linus (Core extraction), Saul (MCP server)  
 **Scope:** Solution structure, MCP server implementation, Core library extraction
 
-**Status:** ✅ **COMPLETE** — All four agents delivered on schedule. Build: 0 errors, 0 warnings. Tests: 240/240 passing.
+**Status:** ✅ **COMPLETE**, later superseded for dependency versions, tool count, bootstrap, response schemas, and pagination by the 2026-08-24 audit. Historical authentication decisions are unchanged.
 
 **Key Decisions:**
 
@@ -435,3 +435,24 @@ The Finary API returns crypto position data nested inside each account from `Get
 - All meaningful changes require team consensus
 - Document architectural decisions here
 - Keep history focused on work, decisions focused on direction
+
+---
+
+### 2026-08-24: MCP data-surface hardening and dependency audit
+
+**Scope:** API data client, MCP data tools/contracts, XLSX unified aggregation, dependencies, tests, and current documentation. Authentication implementation was explicitly excluded and left unchanged.
+
+**Decisions:**
+
+1. `FinaryExport.Core` remains unaware of MCP. It exposes only reusable API concepts such as validated periods/value types and bounded page retrieval.
+2. MCP-only response DTOs, safe field projections, decimal-string serialization, output schemas, scope notes, and page limits live under `FinaryExport.Mcp`.
+3. Category timeseries always sends the API-required `timeseries_type=sum` and `value_type=gross` parameters.
+4. Bounded transaction periods use organization-level queries with explicit trailing dates; full-history XLSX behavior remains on the existing category endpoint.
+5. `get_holdings` reads nested investment positions rather than the lighter holdings-account shell.
+6. MCP account rows are deduplicated by ID for presentation, but category appearances remain distinct additive components. Unified XLSX totals must sum those components; an investment wrapper can expose securities and SCPI values under the same account ID.
+7. MCP session profile state is isolated from Core: a factory snapshots the selected profile into a fresh API client for each invocation. `FinaryApiClient` has no MCP knowledge.
+8. IBAN remains a supported account field in both XLSX and MCP responses. Investment MCP positions include securities, fiat balances, and SCPI positions.
+9. Account sync state is enriched through the reusable read-only `/users/me/synchronizations` Core endpoint. Failure is non-fatal and appears as a tool warning.
+10. All direct NuGet dependencies are kept at the latest stable versions available during the audit.
+
+**Verification:** Release build succeeds with zero warnings and all 284 tests pass. A fresh CLI export produced five workbooks with zero sheet errors; baseline comparison preserved file/sheet structure, row sets, and every IBAN. A fresh MCP process is still required for live verification after the final source changes.

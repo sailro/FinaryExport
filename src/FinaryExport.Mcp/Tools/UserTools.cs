@@ -1,31 +1,43 @@
 using System.ComponentModel;
 using FinaryExport.Api;
-using FinaryExport.Models.User;
+using FinaryExport.Mcp.Contracts;
 using ModelContextProtocol.Server;
 
 namespace FinaryExport.Mcp.Tools;
 
 [McpServerToolType]
-public class UserTools(IFinaryApiClient api)
+public class UserTools(IMcpFinaryApiClientFactory clients)
 {
-	[McpServerTool(Name = "get_user_profile"), Description("Get the authenticated user's profile including name, email, subscription level, and display currency")]
-	public async Task<UserProfile?> GetUserProfile(CancellationToken ct = default)
+	[McpServerTool(Name = "get_user_profile", UseStructuredContent = true, ReadOnly = true, Idempotent = true), Description("Get a privacy-limited authenticated user profile with identity, subscription, and display currency")]
+	public async Task<UserProfileResponse> GetUserProfile(CancellationToken ct = default)
 	{
-		return await api.GetCurrentUserAsync(ct);
+		var api = clients.CreateGlobalClient();
+		return McpMapper.User(await api.GetCurrentUserAsync(ct));
 	}
 
-	[McpServerTool(Name = "get_profiles"), Description("List all available profiles (memberships) the user has access to, including personal and organization profiles")]
-	public async Task<List<FinaryProfile>> GetProfiles(CancellationToken ct = default)
+	[McpServerTool(Name = "get_profiles", UseStructuredContent = true, ReadOnly = true, Idempotent = true), Description("List profiles available for active-profile queries")]
+	public async Task<ProfilesResponse> GetProfiles(CancellationToken ct = default)
 	{
-		return await api.GetAllProfilesAsync(ct);
+		var api = clients.CreateGlobalClient();
+		return McpMapper.Profiles(await api.GetAllProfilesAsync(ct));
 	}
 
-	[McpServerTool(Name = "set_active_profile"), Description("Switch the active profile for subsequent queries. Use get_profiles first to discover available org_id and membership_id values. Required when the user has multiple memberships.")]
-	public string SetActiveProfile(
+	[McpServerTool(Name = "set_active_profile", UseStructuredContent = true, ReadOnly = false, Idempotent = true), Description("Switch the MCP session's active profile for subsequent read-only queries. Use get_profiles to obtain the IDs.")]
+	public async Task<ActiveProfileResponse> SetActiveProfile(
 		[Description("Organization ID from the profile list")] string orgId,
-		[Description("Membership ID from the profile list")] string membershipId)
+		[Description("Membership ID from the profile list")] string membershipId,
+		CancellationToken ct = default)
 	{
-		api.SetOrganizationContext(orgId, membershipId);
-		return $"Active profile switched to org={orgId}, membership={membershipId}";
+		if (string.IsNullOrWhiteSpace(orgId))
+			throw McpErrors.InvalidInput("Organization ID is required.");
+		if (string.IsNullOrWhiteSpace(membershipId))
+			throw McpErrors.InvalidInput("Membership ID is required.");
+
+		await clients.SetActiveProfileAsync(orgId, membershipId, ct);
+		return new ActiveProfileResponse
+		{
+			OrganizationId = orgId,
+			MembershipId = membershipId
+		};
 	}
 }

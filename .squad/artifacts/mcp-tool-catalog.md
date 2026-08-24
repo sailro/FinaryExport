@@ -4,6 +4,7 @@
 > **Date:** 2026-03-14
 > **Source:** `IFinaryApiClient` interface + all partial implementations + `api-analysis.md` wire capture
 > **Purpose:** Complete API surface catalog for MCP server tool definitions
+> **Status:** Historical pre-implementation planning artifact. It intentionally preserves the original 15-tool proposal; the current 17-tool, schema-backed surface is documented in `README.md` and `architecture.md`.
 
 ---
 
@@ -94,7 +95,7 @@ These endpoints were observed in the traffic capture but are **not** on `IFinary
 | Endpoint | HTTP Method | Description | Expose? |
 |----------|-------------|-------------|---------|
 | `GET /users/me/sync_status` | GET | Bank sync polling status | ⚠️ Internal — not useful for LLM |
-| `GET /users/me/synchronizations` | GET | Bank connection sync states | ⚠️ Internal |
+| `GET /users/me/synchronizations` | GET | Bank connection sync states | ✅ Core account-response enrichment; not exposed as a standalone tool |
 | `GET /users/me/subscription_details` | GET | Subscription info | ⚠️ Maybe — "am I a Plus subscriber?" |
 | `GET /users/me/kyc_infos` | GET | KYC verification | ❌ Internal |
 | `GET /users/me/notifications` | GET | Notification list | ⚠️ Low value |
