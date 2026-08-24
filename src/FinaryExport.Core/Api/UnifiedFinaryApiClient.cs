@@ -52,6 +52,9 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
 		return _inner.GetCurrentUserAsync(ct);
 	}
 
+	public Task<List<AccountSynchronization>> GetSynchronizationsAsync(CancellationToken ct = default)
+		=> _inner.GetSynchronizationsAsync(ct);
+
 	// ── Aggregated: accounts merged by ID across all memberships ──
 
 	public async Task<List<Account>> GetCategoryAccountsAsync(AssetCategory category, string period = Defaults.DefaultPeriod, CancellationToken ct = default)
@@ -124,19 +127,22 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
 		UseOwnerContext();
 		var ownerPortfolio = await _inner.GetPortfolioAsync(period, ct);
 
-		// Compute unified totals from merged accounts across all memberships
+		// Compute unified totals from category components merged across memberships.
+		// An account ID may legitimately appear in more than one category (for example,
+		// an investment wrapper containing both securities and SCPI real estate). Those
+		// category balances are distinct components and must all be included.
 		var grossTotal = 0m;
 		var creditsTotal = 0m;
 
 		foreach (var category in Enum.GetValues<AssetCategory>())
 		{
 			var accounts = await GetCategoryAccountsAsync(category, period, ct);
-			var categorySum = accounts.Sum(a => a.Balance ?? 0m);
+			var categoryTotal = accounts.Sum(account => account.Balance ?? 0m);
 
 			if (category == AssetCategory.Credits)
-				creditsTotal = categorySum;
+				creditsTotal = categoryTotal;
 			else
-				grossTotal += categorySum;
+				grossTotal += categoryTotal;
 		}
 
 		var netTotal = grossTotal - creditsTotal;
@@ -197,6 +203,42 @@ public sealed class UnifiedFinaryApiClient : IFinaryApiClient
 		}
 
 		return [.. merged.Values.OrderByDescending(t => t.Date)];
+	}
+
+	public async Task<List<Transaction>> GetCategoryTransactionsPageAsync(
+		AssetCategory category,
+		string period,
+		int offset,
+		int limit,
+		CancellationToken ct = default)
+	{
+		var merged = new Dictionary<long, Transaction>();
+		var fetchLimit = checked(offset + limit);
+
+		foreach (var profile in _profiles)
+		{
+			_inner.SetOrganizationContext(profile.OrgId, profile.MembershipId);
+			var transactions = await _inner.GetCategoryTransactionsPageAsync(
+				category,
+				period,
+				0,
+				fetchLimit,
+				ct);
+
+			foreach (var transaction in transactions)
+			{
+				if (transaction.Id is not null)
+					merged.TryAdd(transaction.Id.Value, transaction);
+			}
+		}
+
+		return
+		[
+			.. merged.Values
+				.OrderByDescending(transaction => transaction.Date)
+				.Skip(offset)
+				.Take(limit)
+		];
 	}
 
 	// ── Aggregated: dividends with entries merged by ID ──

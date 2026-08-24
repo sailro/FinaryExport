@@ -30,8 +30,10 @@ public interface IFinaryApiClient
 	Task<List<Account>> GetCategoryAccountsAsync(Models.AssetCategory category, string period = Defaults.DefaultPeriod, CancellationToken ct = default);
 	Task<List<TimeseriesData>> GetCategoryTimeseriesAsync(Models.AssetCategory category, string period = Defaults.DefaultPeriod, CancellationToken ct = default);
 	Task<List<Transaction>> GetCategoryTransactionsAsync(Models.AssetCategory category, string period = Defaults.DefaultPeriod, int pageSize = Defaults.DefaultTransactionPageSize, CancellationToken ct = default);
+	Task<List<Transaction>> GetCategoryTransactionsPageAsync(Models.AssetCategory category, string period, int offset, int limit, CancellationToken ct = default);
 
 	// Cross-cutting
 	Task<List<HoldingsAccount>> GetHoldingsAccountsAsync(CancellationToken ct = default);
+	Task<List<AccountSynchronization>> GetSynchronizationsAsync(CancellationToken ct = default);
 	Task<UserProfile?> GetCurrentUserAsync(CancellationToken ct = default);
 }

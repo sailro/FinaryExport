@@ -10,11 +10,15 @@ public sealed partial class FinaryApiClient
 {
 	public async Task<List<Account>> GetCategoryAccountsAsync(AssetCategory category, string period = Defaults.DefaultPeriod, CancellationToken ct = default)
 	{
+		period = FinaryPeriod.Validate(period);
 		return await GetAsync<List<Account>>($"{BasePath}/portfolio/{category.ToUrlSegment()}/accounts?period={period}", ct) ?? [];
 	}
 
 	public async Task<List<TimeseriesData>> GetCategoryTimeseriesAsync(AssetCategory category, string period = Defaults.DefaultPeriod, CancellationToken ct = default)
 	{
-		return await GetAsync<List<TimeseriesData>>($"{BasePath}/portfolio/{category.ToUrlSegment()}/timeseries?new_format=true&period={period}", ct) ?? [];
+		period = FinaryPeriod.Validate(period);
+		return await GetAsync<List<TimeseriesData>>(
+			$"{BasePath}/portfolio/{category.ToUrlSegment()}/timeseries?new_format=true&period={period}&timeseries_type=sum&value_type=gross",
+			ct) ?? [];
 	}
 }

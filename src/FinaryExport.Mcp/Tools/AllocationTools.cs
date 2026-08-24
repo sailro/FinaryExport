@@ -1,22 +1,28 @@
 using System.ComponentModel;
 using FinaryExport.Api;
-using FinaryExport.Models.Portfolio;
+using FinaryExport.Mcp.Contracts;
 using ModelContextProtocol.Server;
 
 namespace FinaryExport.Mcp.Tools;
 
 [McpServerToolType]
-public class AllocationTools(IFinaryApiClient api)
+public class AllocationTools(IMcpFinaryApiClientFactory clients)
 {
-	[McpServerTool(Name = "get_geographical_allocation"), Description("Get portfolio allocation breakdown by geographical region, showing how investments are distributed across countries and continents")]
-	public async Task<AllocationData?> GetGeographicalAllocation(CancellationToken ct = default)
+	[McpServerTool(Name = "get_geographical_allocation", UseStructuredContent = true, ReadOnly = true, Idempotent = true), Description("Get a concise active-profile geographical allocation without internal contribution metadata")]
+	public async Task<AllocationResponse> GetGeographicalAllocation(CancellationToken ct = default)
 	{
-		return await api.GetGeographicalAllocationAsync(ct);
+		var api = await clients.CreateActiveClientAsync(ct);
+		var allocation = await api.GetGeographicalAllocationAsync(ct);
+		var currency = McpMapper.DisplayCurrency(await api.GetCurrentUserAsync(ct));
+		return McpMapper.Allocation(allocation, currency);
 	}
 
-	[McpServerTool(Name = "get_sector_allocation"), Description("Get portfolio allocation breakdown by economic sector, showing distribution across industries like technology, finance, healthcare, etc.")]
-	public async Task<AllocationData?> GetSectorAllocation(CancellationToken ct = default)
+	[McpServerTool(Name = "get_sector_allocation", UseStructuredContent = true, ReadOnly = true, Idempotent = true), Description("Get a concise active-profile sector allocation without internal contribution metadata")]
+	public async Task<AllocationResponse> GetSectorAllocation(CancellationToken ct = default)
 	{
-		return await api.GetSectorAllocationAsync(ct);
+		var api = await clients.CreateActiveClientAsync(ct);
+		var allocation = await api.GetSectorAllocationAsync(ct);
+		var currency = McpMapper.DisplayCurrency(await api.GetCurrentUserAsync(ct));
+		return McpMapper.Allocation(allocation, currency);
 	}
 }

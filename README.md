@@ -82,7 +82,7 @@ Each account and transaction also has a **Native Currency** column showing the o
 
 ## Output
 
-Each profile export generates an `.xlsx` workbook. A unified workbook combining all profiles is also generated. A full profile for instance produces **14 sheets**:
+Each profile export generates an `.xlsx` workbook. A unified workbook combining all profiles is also generated. A profile with data in every category produces up to **15 sheets**:
 
 ### Portfolio Summary
 
@@ -134,7 +134,7 @@ Three sections in one sheet:
 
 The tool discovers all Finary profiles (personal + organization memberships) and exports:
 - One workbook per profile: `finary-export-{name}.xlsx` (ownership-adjusted values)
-- One unified workbook: `finary-export-unified.xlsx` (aggregated raw values across all profiles)
+- One unified workbook: `finary-export-unified.xlsx` (deduplicated, ownership-normalized full values across profiles)
 
 ## MCP Server — Talk to Your Portfolio
 
@@ -189,13 +189,13 @@ Add this to your MCP configuration file and restart your client:
     "finary": {
       "type": "stdio",
       "command": "dotnet",
-      "args": ["run", "--project", "src/FinaryExport.Mcp"]
+      "args": ["run", "--project", "C:/Dev/FinaryExport/src/FinaryExport.Mcp"]
     }
   }
 }
 ```
 
-> **Tip:** You can replace `dotnet run --project ...` with the path to a published executable for faster startup.
+Replace `C:/Dev/FinaryExport` with the absolute path to your clone. A published executable can be used instead for faster startup.
 
 ### Authentication
 
@@ -211,32 +211,44 @@ If you have a family account with multiple profiles (e.g., personal + kids), jus
 
 > "Switch to my daughter's profile"
 
-The assistant discovers all your available profiles automatically. All subsequent questions use the selected profile until you switch again.
+The server starts on the owner profile automatically. Portfolio data tools explicitly report `scope: "active_profile"`; global identity and profile-list responses use `authenticated_user` and `available_profiles`. After `set_active_profile`, subsequent portfolio calls use that profile until you switch again or restart the server.
+
+### Response and Data Semantics
+
+- All 17 tools publish MCP output schemas and return structured content.
+- Monetary values, quantities, and percentages are serialized as decimal strings so precision is not lost in JSON number conversion.
+- `get_portfolio_summary` is the authoritative source for portfolio totals. Account rows must not be summed into a replacement total.
+- `get_all_accounts` deduplicates account rows by ID and groups repeated category appearances under `category_values`; those category values remain distinct additive components.
+- Account responses preserve IBANs and enrich connection state from Finary synchronization metadata when available. Raw ownership structures and internal provider identifiers remain omitted.
+- Investment holdings include securities, investment-account fiat balances, and SCPI positions.
+- List-heavy tools accept `offset` and `limit` (default 100, maximum 500) to keep responses bounded.
+- Transaction periods are trailing windows ending now. Transaction tools default to `1m`; use `period: "all"` explicitly for complete history.
+- MCP responses omit raw ownership structures, correlation IDs, and internal provider metadata. The XLSX exporter continues to use the full Core models independently.
 
 ### Tool Reference
 
 <details>
 <summary>Available tools (for developers and advanced users)</summary>
 
-The server exposes 16 read-only tools. Most accept an optional `period` parameter (`all`, `1d`, `1w`, `1m`, `3m`, `6m`, `1y`, `5y`).
+The server exposes 17 tools: 16 read-only data tools and one session-scoped profile switch. Supported periods are `all`, `1d`, `1w`, `1m`, `3m`, `6m`, `1y`, and `5y`.
 
 | Tool | What it does |
 |------|-------------|
 | `get_user_profile` | Authenticated user's profile info (name, email, currency) |
 | `get_profiles` | Lists all available profiles (personal + org memberships) |
 | `set_active_profile` | Switches the active profile for subsequent queries |
-| `get_portfolio_summary` | Total portfolio valuation, gross/net, period performance |
-| `get_portfolio_timeseries` | Historical portfolio value over time |
-| `get_portfolio_fees` | Fee analysis: annual, cumulated, potential savings |
-| `get_accounts` | Accounts for a specific asset category |
-| `get_all_accounts` | Accounts across all asset categories |
-| `get_category_timeseries` | Historical value for a specific category |
-| `get_transactions` | Transactions for a category (checkings, savings, investments, credits) |
-| `get_all_transactions` | Transactions across all supported categories |
-| `get_holdings` | Investment holdings with security positions and balances |
-| `get_account_positions` | Individual positions (securities, crypto, or fiat) within a specific account, category-aware |
-| `get_crypto_holdings` | All crypto + fiat positions across all crypto accounts with logo URLs and totals |
-| `get_dividends` | Dividend summary: annual income, yield, past and upcoming |
+| `get_portfolio_summary` | Authoritative gross assets, liabilities, net worth, financial assets, allocation, and performance |
+| `get_portfolio_timeseries` | Paged, normalized historical portfolio values |
+| `get_portfolio_fees` | Concise annual/cumulated fee totals and contract savings |
+| `get_accounts` | Paged accounts for one asset category |
+| `get_all_accounts` | Paged accounts across all categories, deduplicated by account ID |
+| `get_category_timeseries` | Paged historical values for one category |
+| `get_transactions` | Bounded, date-filtered transactions for one supported category |
+| `get_all_transactions` | Bounded, date-sorted transactions across supported categories |
+| `get_holdings` | Paged investment holdings with security, fiat, and SCPI positions |
+| `get_account_positions` | Paged individual positions (security, SCPI, crypto, or fiat) within a specific account, category-aware |
+| `get_crypto_holdings` | Crypto and fiat positions for the active profile, grouped by account |
+| `get_dividends` | Paged dividend events plus concise income totals |
 | `get_geographical_allocation` | Portfolio allocation by region |
 | `get_sector_allocation` | Portfolio allocation by economic sector |
 
