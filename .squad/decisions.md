@@ -456,3 +456,18 @@ The Finary API returns crypto position data nested inside each account from `Get
 10. All direct NuGet dependencies are kept at the latest stable versions available during the audit.
 
 **Verification:** Release build succeeds with zero warnings and all 284 tests pass. A fresh CLI export produced five workbooks with zero sheet errors; baseline comparison preserved file/sheet structure, row sets, and every IBAN. A fresh MCP process is still required for live verification after the final source changes.
+
+### 2026-08-25: MCP investment components follow current category responses
+
+**Scope:** MCP holdings projection only. Authentication, the shared Core API client, and XLSX export behavior remain unchanged.
+
+**Decisions:**
+
+1. Continue using the existing authenticated `FinaryApiClient` and its category-account calls; do not add a public-API client, credential, token, or authentication path.
+2. Build investment holdings from the existing `investments`, `real_estates`, and `fonds_euro` responses. Join components only when their account IDs match, and sum their distinct category balances because category components are additive.
+3. Read SCPI positions from the investment component when present for backward compatibility; otherwise use the matching real-estate component. Never emit both copies.
+4. Include standalone real-estate components only when they contain SCPI positions. Do not synthesize investment positions from physical property balances.
+5. Emit fonds-euro nested positions when available. If Finary supplies only the fonds-euro account wrapper, expose one position grounded in that account's name, currency, and display balance.
+6. Keep all joining and response shaping under `FinaryExport.Mcp`, preserving the boundary that `FinaryExport.Core` has no knowledge of MCP.
+
+**Verification:** Release build succeeds with zero warnings and all 290 tests pass. Pre/post CLI exports each produced four profile workbooks plus one unified workbook with zero errors. Cell-level comparison found identical sheet order, dimensions, formulas, identifiers, and row sets; differences were limited to live market values and one provider-side security-symbol refresh between the two API reads.

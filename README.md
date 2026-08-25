@@ -220,7 +220,7 @@ The server starts on the owner profile automatically. Portfolio data tools expli
 - `get_portfolio_summary` is the authoritative source for portfolio totals. Account rows must not be summed into a replacement total.
 - `get_all_accounts` deduplicates account rows by ID and groups repeated category appearances under `category_values`; those category values remain distinct additive components.
 - Account responses preserve IBANs and enrich connection state from Finary synchronization metadata when available. Raw ownership structures and internal provider identifiers remain omitted.
-- Investment holdings include securities, investment-account fiat balances, and SCPI positions.
+- Investment holdings include securities, investment-account fiat balances, SCPI positions, and fonds-euro positions. Finary can return components of one account under multiple categories; the MCP projection joins those components by account ID while keeping their balances additive. This does not affect XLSX export behavior.
 - List-heavy tools accept `offset` and `limit` (default 100, maximum 500) to keep responses bounded.
 - Transaction periods are trailing windows ending now. Transaction tools default to `1m`; use `period: "all"` explicitly for complete history.
 - MCP responses omit raw ownership structures, correlation IDs, and internal provider metadata. The XLSX exporter continues to use the full Core models independently.
@@ -245,8 +245,8 @@ The server exposes 17 tools: 16 read-only data tools and one session-scoped prof
 | `get_category_timeseries` | Paged historical values for one category |
 | `get_transactions` | Bounded, date-filtered transactions for one supported category |
 | `get_all_transactions` | Bounded, date-sorted transactions across supported categories |
-| `get_holdings` | Paged investment holdings with security, fiat, and SCPI positions |
-| `get_account_positions` | Paged individual positions (security, SCPI, crypto, or fiat) within a specific account, category-aware |
+| `get_holdings` | Paged investment holdings with security, fiat, SCPI, and fonds-euro positions |
+| `get_account_positions` | Paged individual positions (security, SCPI, fonds euro, crypto, or fiat) within a specific account, category-aware |
 | `get_crypto_holdings` | Crypto and fiat positions for the active profile, grouped by account |
 | `get_dividends` | Paged dividend events plus concise income totals |
 | `get_geographical_allocation` | Portfolio allocation by region |

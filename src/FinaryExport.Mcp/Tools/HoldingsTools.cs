@@ -1,7 +1,9 @@
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using FinaryExport.Api;
 using FinaryExport.Mcp.Contracts;
 using FinaryExport.Models;
+using FinaryExport.Models.Accounts;
 using ModelContextProtocol.Server;
 
 namespace FinaryExport.Mcp.Tools;
@@ -9,7 +11,7 @@ namespace FinaryExport.Mcp.Tools;
 [McpServerToolType]
 public class HoldingsTools(IMcpFinaryApiClientFactory clients)
 {
-	[McpServerTool(Name = "get_holdings", UseStructuredContent = true, ReadOnly = true, Idempotent = true), Description("Get active-profile investment accounts with their modeled nested security positions and balances. This tool does not return transactions.")]
+	[McpServerTool(Name = "get_holdings", UseStructuredContent = true, ReadOnly = true, Idempotent = true), Description("Get active-profile investment holdings with security, fiat, SCPI, and fonds-euro positions. This tool does not return transactions.")]
 	public async Task<HoldingsResponse> GetHoldings(
 		[Description("Zero-based position offset. Default: 0"), Range(0, int.MaxValue)] int offset = 0,
 		[Description("Maximum positions to return, from 1 to 500. Default: 100"), Range(1, ToolInputs.MaximumPageSize)] int limit = ToolInputs.DefaultPageSize,
@@ -17,8 +19,19 @@ public class HoldingsTools(IMcpFinaryApiClientFactory clients)
 	{
 		(offset, limit) = ToolInputs.Page(offset, limit);
 		var api = await clients.CreateActiveClientAsync(ct);
-		var accounts = await api.GetCategoryAccountsAsync(AssetCategory.Investments, ct: ct);
-		var mapped = accounts.Select(McpMapper.InvestmentAccount).ToList();
+		var components = await GetInvestmentComponentsAsync(api, ct);
+		var mapped = components
+			.GroupBy(component => AccountKey(component.Category, component.Account), StringComparer.OrdinalIgnoreCase)
+			.Select(group => new
+			{
+				Components = group.ToList(),
+				Account = McpMapper.InvestmentAccount(group)
+			})
+			.Where(item =>
+				item.Components.Any(component => component.Category is AssetCategory.Investments or AssetCategory.FondsEuro) ||
+				item.Account.Positions.Any(position => position.Kind == "scpi"))
+			.Select(item => item.Account)
+			.ToList();
 		var page = PagePositions(mapped, offset, limit);
 		var currency = McpMapper.DisplayCurrency(await api.GetCurrentUserAsync(ct));
 		return new HoldingsResponse
@@ -34,10 +47,10 @@ public class HoldingsTools(IMcpFinaryApiClientFactory clients)
 		};
 	}
 
-	[McpServerTool(Name = "get_account_positions", UseStructuredContent = true, ReadOnly = true, Idempotent = true), Description("Get typed positions inside one active-profile investment, crypto, checking, or savings account. Use get_accounts to find the account ID.")]
+	[McpServerTool(Name = "get_account_positions", UseStructuredContent = true, ReadOnly = true, Idempotent = true), Description("Get typed positions inside one active-profile investment, real-estate, fonds-euro, crypto, checking, or savings account. Use get_accounts to find the account ID.")]
 	public async Task<AccountPositionsResponse> GetAccountPositions(
 		[Description("The account ID (from get_accounts response)")] string account_id,
-		[Description("Asset category. Options: checkings, savings, investments, cryptos. Default: investments"), AllowedValues("checkings", "savings", "investments", "cryptos")] string category = "investments",
+		[Description("Asset category. Options: checkings, savings, investments, real_estates, fonds_euro, cryptos. Default: investments"), AllowedValues("checkings", "savings", "investments", "real_estates", "fonds_euro", "cryptos")] string category = "investments",
 		[Description("Zero-based position offset. Default: 0"), Range(0, int.MaxValue)] int offset = 0,
 		[Description("Maximum positions to return, from 1 to 500. Default: 100"), Range(1, ToolInputs.MaximumPageSize)] int limit = ToolInputs.DefaultPageSize,
 		CancellationToken ct = default)
@@ -46,12 +59,18 @@ public class HoldingsTools(IMcpFinaryApiClientFactory clients)
 			throw McpErrors.InvalidInput("Account ID is required.");
 		(offset, limit) = ToolInputs.Page(offset, limit);
 		var cat = AccountTools.ParseCategory(category);
-		if (cat is not (AssetCategory.Investments or AssetCategory.Cryptos or AssetCategory.Checkings or AssetCategory.Savings))
+		if (cat is not (AssetCategory.Investments or AssetCategory.RealEstates or AssetCategory.FondsEuro or AssetCategory.Cryptos or AssetCategory.Checkings or AssetCategory.Savings))
 			throw McpErrors.InvalidInput(
-				$"Position details are not modeled for category '{category}'. Supported categories: investments, cryptos, checkings, savings.");
+				$"Position details are not modeled for category '{category}'. Supported categories: investments, real_estates, fonds_euro, cryptos, checkings, savings.");
 
 		var api = await clients.CreateActiveClientAsync(ct);
-		var accounts = await api.GetCategoryAccountsAsync(cat, "all", ct);
+		var investmentLike = cat is AssetCategory.Investments or AssetCategory.RealEstates or AssetCategory.FondsEuro;
+		var components = investmentLike
+			? await GetInvestmentComponentsAsync(api, ct)
+			: [];
+		var accounts = investmentLike
+			? components.Where(component => component.Category == cat).Select(component => component.Account).ToList()
+			: await api.GetCategoryAccountsAsync(cat, "all", ct);
 
 		var account = accounts.FirstOrDefault(a =>
 			string.Equals(a.Id, account_id, StringComparison.OrdinalIgnoreCase) ||
@@ -61,8 +80,8 @@ public class HoldingsTools(IMcpFinaryApiClientFactory clients)
 			throw McpErrors.NotFound(
 				$"Account '{account_id}' was not found in category '{category}'. Use get_accounts to list available account IDs.");
 
-		var mapped = cat == AssetCategory.Investments
-			? McpMapper.InvestmentAccount(account)
+		var mapped = investmentLike
+			? McpMapper.InvestmentAccount(RelatedComponents(components, cat, account))
 			: McpMapper.CurrencyAccount(account);
 		var total = mapped.Positions.Count;
 		var positions = mapped.Positions.Skip(offset).Take(limit).ToList();
@@ -78,6 +97,43 @@ public class HoldingsTools(IMcpFinaryApiClientFactory clients)
 			Account = mapped with { Positions = positions }
 		};
 	}
+
+	private static async Task<List<(AssetCategory Category, Account Account)>> GetInvestmentComponentsAsync(
+		IFinaryApiClient api,
+		CancellationToken ct)
+	{
+		var categories = new[]
+		{
+			AssetCategory.Investments,
+			AssetCategory.RealEstates,
+			AssetCategory.FondsEuro
+		};
+		var fetches = categories.Select(async category =>
+		{
+			var accounts = await api.GetCategoryAccountsAsync(category, "all", ct);
+			return accounts.Select(account => (Category: category, Account: account)).ToList();
+		});
+
+		return [.. (await Task.WhenAll(fetches)).SelectMany(items => items)];
+	}
+
+	private static IEnumerable<(AssetCategory Category, Account Account)> RelatedComponents(
+		IEnumerable<(AssetCategory Category, Account Account)> components,
+		AssetCategory requestedCategory,
+		Account requestedAccount)
+	{
+		if (!string.IsNullOrWhiteSpace(requestedAccount.Id))
+			return components.Where(component =>
+				string.Equals(component.Account.Id, requestedAccount.Id, StringComparison.OrdinalIgnoreCase));
+
+		return components.Where(component =>
+			component.Category == requestedCategory && ReferenceEquals(component.Account, requestedAccount));
+	}
+
+	private static string AccountKey(AssetCategory category, Account account) =>
+		!string.IsNullOrWhiteSpace(account.Id)
+			? $"id:{account.Id}"
+			: $"{category}:{account.Slug}:{account.Name}";
 
 	[McpServerTool(Name = "get_crypto_holdings", UseStructuredContent = true, ReadOnly = true, Idempotent = true), Description("Get active-profile crypto and fiat positions grouped by crypto account, with a current-value subtotal")]
 	public async Task<CryptoHoldingsResponse> GetCryptoHoldings(
