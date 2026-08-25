@@ -33,12 +33,4 @@ package-lock.json
 # Root-level Python dev tools
 /analyze_traffic.py
 
-# Squad: ignore runtime state (logs, inbox, sessions)
-.squad/orchestration-log/
-.squad/log/
-.squad/decisions/inbox/
-.squad/sessions/
-# Squad: SubSquad activation file (local to this machine)
-.squad-workstream
-
 data-hygiene.txt

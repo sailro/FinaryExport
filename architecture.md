@@ -565,7 +565,7 @@ All Finary API responses wrap data in `{ "result": ..., "message": ..., "error":
 
 ## 13. Design Decisions
 
-Key decisions documented in `.squad/decisions.md`:
+Key design decisions:
 
 | ID | Decision | Rationale |
 |----|----------|-----------|
