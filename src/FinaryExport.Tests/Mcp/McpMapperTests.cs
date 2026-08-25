@@ -1,5 +1,6 @@
 using System.Text.Json;
 using FinaryExport.Mcp.Contracts;
+using FinaryExport.Models;
 using FinaryExport.Models.Accounts;
 using FinaryExport.Models.Portfolio;
 using FinaryExport.Models.User;
@@ -175,6 +176,61 @@ public sealed class McpMapperTests
 			Quantity = "4",
 			CurrentPrice = "300",
 			CurrentValue = "1200"
+		});
+	}
+
+	[Fact]
+	public void InvestmentAccount_PrefersLegacyInvestmentScpisInsteadOfDuplicatingMovedScpis()
+	{
+		using var investmentScpis = JsonDocument.Parse(
+			"""[{"shares":1,"current_value":100,"scpi":{"name":"Existing SCPI"}}]""");
+		using var movedScpis = JsonDocument.Parse(
+			"""[{"shares":1,"current_value":100,"scpi":{"name":"Moved SCPI"}}]""");
+
+		var result = McpMapper.InvestmentAccount(
+		[
+			(AssetCategory.Investments, new Account
+			{
+				Id = "shared",
+				DisplayBalance = 100m,
+				Scpis = investmentScpis.RootElement.Clone()
+			}),
+			(AssetCategory.RealEstates, new Account
+			{
+				Id = "shared",
+				DisplayBalance = 100m,
+				Scpis = movedScpis.RootElement.Clone()
+			})
+		]);
+
+		result.DisplayBalance.Should().Be("200");
+		result.Positions.Should().ContainSingle().Which.Name.Should().Be("Existing SCPI");
+	}
+
+	[Fact]
+	public void InvestmentAccount_ParsesNestedFondsEuroPosition()
+	{
+		using var fondsEuro = JsonDocument.Parse(
+			"""{"positions":[{"units":12.5,"display_current_value":2500,"asset":{"name":"General fund","code":"EUR"}}]}""");
+
+		var result = McpMapper.InvestmentAccount(
+		[
+			(AssetCategory.FondsEuro, new Account
+			{
+				Id = "life-insurance",
+				Name = "Life insurance",
+				DisplayBalance = 2500m,
+				FondsEuro = fondsEuro.RootElement.Clone()
+			})
+		]);
+
+		result.Positions.Should().ContainSingle().Which.Should().BeEquivalentTo(new
+		{
+			Kind = "fonds_euro",
+			Name = "General fund",
+			Code = "EUR",
+			Quantity = "12.5",
+			CurrentValue = "2500"
 		});
 	}
 

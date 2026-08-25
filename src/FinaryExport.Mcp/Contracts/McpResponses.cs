@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FinaryExport.Api;
+using FinaryExport.Models;
 using FinaryExport.Models.Accounts;
 using FinaryExport.Models.Portfolio;
 using FinaryExport.Models.Transactions;
@@ -859,19 +860,57 @@ public static class McpMapper
 			 string.Equals(item.CorrelationId, account.ConnectionId, StringComparison.OrdinalIgnoreCase)));
 	}
 
-	public static HoldingAccountItem InvestmentAccount(Account account) => new()
+	public static HoldingAccountItem InvestmentAccount(Account account) =>
+		InvestmentAccount([(AssetCategory.Investments, account)]);
+
+	public static HoldingAccountItem InvestmentAccount(
+		IEnumerable<(AssetCategory Category, Account Account)> source)
 	{
-		AccountId = account.Id,
-		Name = account.Name,
-		Institution = account.Institution?.Name,
-		DisplayBalance = Decimal(account.DisplayBalance ?? account.Balance),
-		Positions =
-		[
-			.. (account.Securities ?? []).Select(SecurityPosition),
-			.. (account.Fiats ?? []).Select(position => CurrencyPosition(position, "fiat")),
-			.. ParseScpiPositions(account.Scpis)
-		]
-	};
+		var components = source
+			.GroupBy(component => component.Category)
+			.ToDictionary(group => group.Key, group => group.First().Account);
+		var first = components
+			.OrderBy(component => component.Key switch
+			{
+				AssetCategory.Investments => 0,
+				AssetCategory.FondsEuro => 1,
+				_ => 2
+			})
+			.First().Value;
+		components.TryGetValue(AssetCategory.Investments, out var investment);
+		components.TryGetValue(AssetCategory.RealEstates, out var realEstate);
+		components.TryGetValue(AssetCategory.FondsEuro, out var fondsEuro);
+
+		var scpis = investment is null ? [] : ParseScpiPositions(investment.Scpis).ToList();
+		if (scpis.Count == 0 && realEstate is not null)
+			scpis = ParseScpiPositions(realEstate.Scpis).ToList();
+
+		var fondsEuroPositions = fondsEuro is not null
+			? ParseFondsEuroPositions(fondsEuro, includeAccountFallback: true).ToList()
+			: investment?.FondsEuro is not null
+				? ParseFondsEuroPositions(investment, includeAccountFallback: false).ToList()
+				: [];
+		var balances = components.Values
+			.Select(account => account.DisplayBalance ?? account.Balance)
+			.Where(balance => balance is not null)
+			.Select(balance => balance!.Value)
+			.ToList();
+
+		return new HoldingAccountItem
+		{
+			AccountId = first.Id,
+			Name = first.Name,
+			Institution = first.Institution?.Name,
+			DisplayBalance = Decimal(balances.Count == 0 ? null : balances.Sum()),
+			Positions =
+			[
+				.. (investment?.Securities ?? []).Select(SecurityPosition),
+				.. (investment?.Fiats ?? []).Select(position => CurrencyPosition(position, "fiat")),
+				.. scpis,
+				.. fondsEuroPositions
+			]
+		};
+	}
 
 	public static HoldingAccountItem CurrencyAccount(Account account) => new()
 	{
@@ -921,27 +960,87 @@ public static class McpMapper
 	{
 		if (source is null) yield break;
 
-		foreach (var item in EnumeratePositionObjects(source.Value))
+		foreach (var item in EnumeratePositionObjects(source.Value, "data", "items", "positions", "holdings", "scpis"))
 		{
-			yield return new PositionItem
+			var position = new PositionItem
 			{
 				Kind = "scpi",
-				Name = FirstJsonString(item, ["scpi", "name"], ["asset", "name"], ["name"]),
-				Code = FirstJsonString(item, ["scpi", "code"], ["asset", "code"], ["code"]),
-				Symbol = FirstJsonString(item, ["scpi", "symbol"], ["asset", "symbol"], ["symbol"]),
-				AssetType = FirstJsonString(item, ["scpi", "type"], ["asset", "type"], ["asset_type"]) ?? "scpi",
-				Quantity = FirstJsonDecimal(item, ["quantity"], ["shares"], ["parts"], ["share_count"]),
-				CurrentPrice = FirstJsonDecimal(item, ["display_current_price"], ["current_price"], ["scpi", "display_current_price"], ["scpi", "current_price"]),
-				CurrentValue = FirstJsonDecimal(item, ["display_current_value"], ["current_value"], ["display_balance"], ["balance"]),
-				BuyingPrice = FirstJsonDecimal(item, ["display_buying_price"], ["buying_price"]),
-				BuyingValue = FirstJsonDecimal(item, ["display_buying_value"], ["buying_value"]),
-				UnrealizedPnl = FirstJsonDecimal(item, ["display_current_upnl"], ["current_upnl"], ["display_unrealized_pnl"], ["unrealized_pnl"]),
-				UnrealizedPnlPercent = FirstJsonDecimal(item, ["display_current_upnl_percent"], ["current_upnl_percent"], ["unrealized_pnl_percent"])
+				Name = FirstJsonString(item, ["scpi", "name"], ["asset", "name"], ["attributes", "name"], ["relationships", "scpi", "data", "attributes", "name"], ["relationships", "asset", "data", "attributes", "name"], ["name"]),
+				Code = FirstJsonString(item, ["scpi", "code"], ["asset", "code"], ["attributes", "code"], ["code"]),
+				Symbol = FirstJsonString(item, ["scpi", "symbol"], ["asset", "symbol"], ["attributes", "symbol"], ["symbol"]),
+				AssetType = FirstJsonString(item, ["scpi", "type"], ["asset", "type"], ["attributes", "asset_type"], ["asset_type"]) ?? "scpi",
+				Quantity = FirstJsonDecimal(item, ["quantity"], ["shares"], ["parts"], ["share_count"], ["attributes", "quantity"], ["attributes", "shares"]),
+				CurrentPrice = FirstJsonDecimal(item, ["display_current_price"], ["current_price"], ["scpi", "display_current_price"], ["scpi", "current_price"], ["attributes", "display_current_price"], ["attributes", "current_price"]),
+				CurrentValue = FirstJsonDecimal(item, ["display_current_value"], ["current_value"], ["display_balance"], ["balance"], ["attributes", "display_current_value"], ["attributes", "current_value"]),
+				BuyingPrice = FirstJsonDecimal(item, ["display_buying_price"], ["buying_price"], ["attributes", "display_buying_price"], ["attributes", "buying_price"]),
+				BuyingValue = FirstJsonDecimal(item, ["display_buying_value"], ["buying_value"], ["attributes", "display_buying_value"], ["attributes", "buying_value"]),
+				UnrealizedPnl = FirstJsonDecimal(item, ["display_current_upnl"], ["current_upnl"], ["display_unrealized_pnl"], ["unrealized_pnl"], ["attributes", "unrealized_pnl"]),
+				UnrealizedPnlPercent = FirstJsonDecimal(item, ["display_current_upnl_percent"], ["current_upnl_percent"], ["unrealized_pnl_percent"], ["attributes", "unrealized_pnl_percent"])
 			};
+			if (HasPositionData(position))
+				yield return position;
 		}
 	}
 
-	private static IEnumerable<JsonElement> EnumeratePositionObjects(JsonElement source)
+	private static IEnumerable<PositionItem> ParseFondsEuroPositions(
+		Account account,
+		bool includeAccountFallback)
+	{
+		var positions = account.FondsEuro is null
+			? []
+			: EnumeratePositionObjects(account.FondsEuro.Value, "data", "items", "positions", "holdings", "fonds_euro", "fonds_euros")
+				.Select(item => new PositionItem
+				{
+					Kind = "fonds_euro",
+					Name = FirstJsonString(item, ["fonds_euro", "name"], ["fund", "name"], ["asset", "name"], ["attributes", "name"], ["relationships", "asset", "data", "attributes", "name"], ["name"]),
+					Code = FirstJsonString(item, ["fonds_euro", "code"], ["fund", "code"], ["asset", "code"], ["attributes", "code"], ["code"]),
+					Symbol = FirstJsonString(item, ["fonds_euro", "symbol"], ["fund", "symbol"], ["asset", "symbol"], ["attributes", "symbol"], ["symbol"]),
+					AssetType = FirstJsonString(item, ["fonds_euro", "type"], ["fund", "type"], ["asset", "type"], ["attributes", "asset_type"], ["asset_type"]) ?? "fonds_euro",
+					Quantity = FirstJsonDecimal(item, ["quantity"], ["shares"], ["units"], ["attributes", "quantity"], ["attributes", "shares"]),
+					CurrentPrice = FirstJsonDecimal(item, ["display_current_price"], ["current_price"], ["attributes", "display_current_price"], ["attributes", "current_price"]),
+					CurrentValue = FirstJsonDecimal(item, ["display_current_value"], ["current_value"], ["display_balance"], ["balance"], ["display_amount"], ["amount"], ["attributes", "display_current_value"], ["attributes", "current_value"]),
+					BuyingPrice = FirstJsonDecimal(item, ["display_buying_price"], ["buying_price"], ["attributes", "display_buying_price"], ["attributes", "buying_price"]),
+					BuyingValue = FirstJsonDecimal(item, ["display_buying_value"], ["buying_value"], ["attributes", "display_buying_value"], ["attributes", "buying_value"]),
+					UnrealizedPnl = FirstJsonDecimal(item, ["display_current_upnl"], ["current_upnl"], ["display_unrealized_pnl"], ["unrealized_pnl"], ["attributes", "unrealized_pnl"]),
+					UnrealizedPnlPercent = FirstJsonDecimal(item, ["display_current_upnl_percent"], ["current_upnl_percent"], ["unrealized_pnl_percent"], ["attributes", "unrealized_pnl_percent"])
+				})
+				.Where(HasPositionData)
+				.Select(position => position.Name is null ? position with { Name = account.Name } : position)
+				.ToList();
+
+		if (positions.Count > 0)
+			return positions;
+		if (!includeAccountFallback)
+			return [];
+
+		return
+		[
+			new PositionItem
+			{
+				Kind = "fonds_euro",
+				Name = account.Name,
+				Code = account.Currency?.Code,
+				AssetType = "fonds_euro",
+				CurrentValue = Decimal(account.DisplayBalance ?? account.Balance)
+			}
+		];
+	}
+
+	private static bool HasPositionData(PositionItem position) =>
+		position.Name is not null ||
+		position.Code is not null ||
+		position.Symbol is not null ||
+		position.Quantity is not null ||
+		position.CurrentPrice is not null ||
+		position.CurrentValue is not null ||
+		position.BuyingPrice is not null ||
+		position.BuyingValue is not null ||
+		position.UnrealizedPnl is not null ||
+		position.UnrealizedPnlPercent is not null;
+
+	private static IEnumerable<JsonElement> EnumeratePositionObjects(
+		JsonElement source,
+		params string[] containerNames)
 	{
 		if (source.ValueKind == JsonValueKind.Array)
 		{
@@ -953,14 +1052,21 @@ public static class McpMapper
 
 		if (source.ValueKind != JsonValueKind.Object) yield break;
 
-		foreach (var containerName in new[] { "data", "items", "positions", "scpis" })
+		foreach (var containerName in containerNames)
 		{
-			if (!source.TryGetProperty(containerName, out var container) || container.ValueKind != JsonValueKind.Array)
+			if (!source.TryGetProperty(containerName, out var container))
 				continue;
 
-			foreach (var item in container.EnumerateArray())
-				if (item.ValueKind == JsonValueKind.Object)
-					yield return item;
+			if (container.ValueKind == JsonValueKind.Array)
+			{
+				foreach (var item in container.EnumerateArray())
+					if (item.ValueKind == JsonValueKind.Object)
+						yield return item;
+			}
+			else if (container.ValueKind == JsonValueKind.Object)
+			{
+				yield return container;
+			}
 			yield break;
 		}
 
